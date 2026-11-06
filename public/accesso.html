@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1220">
+  <title>Accedi o registrati · Nexcrank</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #080e19; color: #edf4ff; }
+    * { box-sizing: border-box; }
+    body { min-height: 100vh; margin: 0; padding: 24px; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 0%, #142a40 0, #080e19 55%); }
+    .card { width: min(100%, 460px); padding: 32px; border: 1px solid #26364d; border-radius: 24px; background: #0d1726; box-shadow: 0 24px 80px #0006; }
+    .brand { margin: 0 0 24px; color: #edf4ff; font-weight: 850; font-size: 23px; letter-spacing: .06em; text-decoration: none; }
+    .brand span { color: #20c7dc; }
+    h1 { margin: 0 0 8px; font-size: clamp(25px, 6vw, 32px); }
+    .intro { margin: 0 0 24px; color: #9aabc0; line-height: 1.55; }
+    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 5px; margin-bottom: 22px; border: 1px solid #26364d; border-radius: 12px; background: #09111e; }
+    .tab { min-height: 42px; border: 0; border-radius: 8px; background: transparent; color: #9aabc0; font: inherit; font-weight: 700; cursor: pointer; }
+    .tab[aria-selected="true"] { background: #16283c; color: #27c9de; }
+    .google-section { margin: 0 0 20px; }
+    #googleButton { min-height: 42px; display: flex; justify-content: center; }
+    .google-status { margin: 8px 0 0; color: #fbbf7d; font-size: 12px; line-height: 1.45; text-align: center; }
+    .separator { display: flex; align-items: center; gap: 12px; margin: 18px 0 0; color: #71829a; font-size: 12px; }
+    .separator::before, .separator::after { height: 1px; flex: 1; background: #26364d; content: ""; }
+    .google-link-panel { margin: 0 0 20px; padding: 14px; border: 1px solid #304057; border-radius: 12px; background: #101c2b; }
+    .google-link-panel[hidden] { display: none; }
+    .google-link-panel p { margin: 0 0 12px; color: #aab9cc; font-size: 13px; line-height: 1.45; }
+    .google-link-panel label { margin-top: 0; }
+    .google-link-panel input { margin-bottom: 10px; }
+    .google-link-panel .submit { margin-top: 4px; }
+    label { display: block; margin: 16px 0 7px; color: #dce6f4; font-size: 14px; font-weight: 650; }
+    input { width: 100%; min-height: 48px; padding: 12px 14px; border: 1px solid #304057; border-radius: 10px; outline: none; background: #09111e; color: white; font: inherit; font-size: 16px; }
+    input:focus { border-color: #20c7dc; box-shadow: 0 0 0 3px #20c7dc22; }
+    .password-field { position: relative; }
+    .password-field input { padding-right: 54px; }
+    .password-visibility { position: absolute; top: 50%; right: 7px; width: 38px; height: 38px; display: grid; place-items: center; transform: translateY(-50%); border: 0; border-radius: 8px; background: transparent; color: #9aabc0; cursor: pointer; }
+    .password-visibility:hover, .password-visibility:focus-visible { background: #1a2a3d; color: #20c7dc; outline: none; }
+    .password-visibility svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .password-visibility .eye-slash { display: none; }
+    .password-visibility[aria-pressed="true"] .eye-slash { display: block; }
+    .help { margin: 8px 0 0; color: #8394aa; font-size: 12px; line-height: 1.45; }
+    .submit { width: 100%; min-height: 50px; margin-top: 22px; border: 0; border-radius: 11px; background: #20c7dc; color: #05111a; font: inherit; font-weight: 800; cursor: pointer; }
+    .submit:disabled { opacity: .65; cursor: wait; }
+    .forgot-password { display: block; margin: 12px auto 0; padding: 4px; border: 0; background: transparent; color: #20c7dc; font: inherit; font-size: 13px; cursor: pointer; }
+    .forgot-password:hover { color: #8be8f2; text-decoration: underline; }
+    .message { min-height: 22px; margin: 14px 0 0; color: #fda4af; font-size: 14px; line-height: 1.45; }
+    .message.success { color: #73e0b0; }
+    .back { display: inline-block; margin-top: 22px; color: #9aabc0; font-size: 14px; text-decoration: none; }
+    .back:hover { color: white; }
+    .privacy { margin: 18px 0 0; padding-top: 16px; border-top: 1px solid #233149; color: #8293a9; font-size: 12px; line-height: 1.55; }
+    @media (max-width: 480px) { body { padding: 16px; } .card { padding: 24px 20px; border-radius: 20px; } }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <a class="brand" href="index.html">NEX<span>CRANK</span></a>
+    <h1 id="title">Accedi</h1>
+    <p class="intro">Entra nel tuo account Nexcrank o creane uno nuovo.</p>
+    <div class="tabs" role="tablist" aria-label="Accesso o registrazione">
+      <button class="tab" id="loginTab" type="button" role="tab" aria-selected="true">Accedi</button>
+      <button class="tab" id="registerTab" type="button" role="tab" aria-selected="false">Crea account</button>
+    </div>
+    <section class="google-section" aria-label="Accesso Google">
+      <div id="googleButton"></div>
+      <p id="googleStatus" class="google-status" role="status" aria-live="polite"></p>
+      <div class="separator" aria-hidden="true">oppure con email</div>
+    </section>
+    <section id="googleLinkPanel" class="google-link-panel" hidden>
+      <p>Questo indirizzo ha già un account Nexcrank. Inserisci la password attuale per collegarlo a Google.</p>
+      <form id="googleLinkForm">
+        <label for="googleLinkPassword">Password Nexcrank</label>
+        <div class="password-field">
+          <input id="googleLinkPassword" type="password" autocomplete="current-password" required>
+          <button class="password-visibility" type="button" data-password-target="googleLinkPassword" aria-label="Mostra password" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m4 4 16 16"/></svg>
+          </button>
+        </div>
+        <button id="googleLinkButton" class="submit" type="submit">Collega e accedi</button>
+      </form>
+    </section>
+    <form id="authForm">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" autocomplete="email" maxlength="254" required>
+      <label for="password">Password</label>
+      <div class="password-field">
+        <input id="password" name="password" type="password" autocomplete="current-password" minlength="10" maxlength="128" required>
+        <button class="password-visibility" type="button" data-password-target="password" aria-label="Mostra password" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m4 4 16 16"/></svg>
+        </button>
+      </div>
+      <p class="help" id="passwordHelp" hidden>Usa almeno 10 caratteri.</p>
+      <div id="confirmWrap" hidden>
+        <label for="confirmPassword">Conferma password</label>
+        <div class="password-field">
+          <input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128">
+          <button class="password-visibility" type="button" data-password-target="confirmPassword" aria-label="Mostra password" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m4 4 16 16"/></svg>
+          </button>
+        </div>
+      </div>
+      <button class="submit" id="submitButton" type="submit">Accedi</button>
+      <button class="forgot-password" id="forgotPassword" type="button">Password dimenticata?</button>
+      <p class="message" id="message" role="status" aria-live="polite"></p>
+    </form>
+    <a class="back" href="index.html">← Torna alla chat</a>
+    <p class="privacy">Le chat restano salvate nel browser su questo dispositivo e non si sincronizzano con l’account.</p>
+  </main>
+  <script>
+    const loginTab = document.getElementById("loginTab");
+    const registerTab = document.getElementById("registerTab");
+    const title = document.getElementById("title");
+    const form = document.getElementById("authForm");
+    const password = document.getElementById("password");
+    const passwordHelp = document.getElementById("passwordHelp");
+    const confirmWrap = document.getElementById("confirmWrap");
+    const confirmPassword = document.getElementById("confirmPassword");
+    const passwordVisibilityButtons = document.querySelectorAll(".password-visibility");
+    const submitButton = document.getElementById("submitButton");
+    const forgotPassword = document.getElementById("forgotPassword");
+    const message = document.getElementById("message");
+    const googleButton = document.getElementById("googleButton");
+    const googleStatus = document.getElementById("googleStatus");
+    const googleLinkPanel = document.getElementById("googleLinkPanel");
+    const googleLinkForm = document.getElementById("googleLinkForm");
+    const googleLinkPassword = document.getElementById("googleLinkPassword");
+    const googleLinkButton = document.getElementById("googleLinkButton");
+    let googleCredentialInAttesa = "";
+    let mode = "login";
+    passwordVisibilityButtons.forEach(button => {
+      button.addEventListener("click", () => {
+        const input = document.getElementById(button.dataset.passwordTarget);
+        const mostra = input.type === "password";
+        input.type = mostra ? "text" : "password";
+        button.setAttribute("aria-pressed", String(mostra));
+        button.setAttribute("aria-label", mostra ? "Nascondi password" : "Mostra password");
+      });
+    });
+    function setMode(nextMode) {
+      mode = nextMode;
+      const registration = mode === "register";
+      loginTab.setAttribute("aria-selected", String(!registration));
+      registerTab.setAttribute("aria-selected", String(registration));
+      title.textContent = registration ? "Crea il tuo account" : "Accedi";
+      submitButton.textContent = registration ? "Crea account" : "Accedi";
+      forgotPassword.hidden = registration;
+      password.autocomplete = registration ? "new-password" : "current-password";
+      passwordHelp.hidden = !registration;
+      confirmWrap.hidden = !registration;
+      confirmPassword.required = registration;
+      message.textContent = "";
+      message.classList.remove("success");
+    }
+    loginTab.addEventListener("click", () => setMode("login"));
+    registerTab.addEventListener("click", () => setMode("register"));
+    async function inviaCredenzialeGoogle(credential, passwordEsistente = "") {
+      const response = await fetch("/api/auth/google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential, password: passwordEsistente })
+      });
+      const tipoRisposta = response.headers.get("content-type") || "";
+      if (!tipoRisposta.includes("application/json")) throw new Error("Il server Nexcrank non è aggiornato. Riavvialo con node server.js e ricarica la pagina.");
+      const result = await response.json();
+      if (!response.ok && result.collegaAccount) {
+        googleCredentialInAttesa = credential;
+        googleLinkPanel.hidden = false;
+        googleStatus.textContent = "Inserisci la password Nexcrank per confermare il collegamento.";
+        googleLinkPassword.focus();
+        return;
+      }
+      if (!response.ok) throw new Error(result.errore || "Accesso Google non riuscito.");
+      window.location.assign("index.html");
+    }
+
+    googleLinkForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      if (!googleCredentialInAttesa) return;
+      googleLinkButton.disabled = true;
+      googleLinkButton.textContent = "Collegamento…";
+      googleStatus.textContent = "";
+      try {
+        await inviaCredenzialeGoogle(googleCredentialInAttesa, googleLinkPassword.value);
+      } catch (error) {
+        googleStatus.textContent = error.message || "Collegamento non riuscito.";
+      } finally {
+        googleLinkButton.disabled = false;
+        googleLinkButton.textContent = "Collega e accedi";
+      }
+    });
+
+    async function inizializzaAccessoGoogle() {
+      try {
+        const configResponse = await fetch("/api/auth/google-config", { cache: "no-store" });
+        const config = await configResponse.json();
+        if (!config.clientId) {
+          googleStatus.textContent = "Per attivare Google serve un ID client nella configurazione del sito.";
+          return;
+        }
+        const limite = Date.now() + 10000;
+        while (!window.google?.accounts?.id && Date.now() < limite) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        if (!window.google?.accounts?.id) throw new Error("Non riesco a caricare il servizio di accesso Google. Controlla la connessione e ricarica.");
+        window.google.accounts.id.initialize({
+          client_id: config.clientId,
+          callback: risposta => {
+            googleStatus.textContent = "Accesso in corso…";
+            inviaCredenzialeGoogle(risposta.credential).catch(error => {
+              googleStatus.textContent = error.message || "Accesso Google non riuscito.";
+            });
+          }
+        });
+        window.google.accounts.id.renderButton(googleButton, {
+          type: "standard", theme: "outline", size: "large", text: "continue_with",
+          shape: "rectangular", logo_alignment: "left", width: Math.min(400, Math.max(220, Math.floor(googleButton.clientWidth)))
+        });
+      } catch (error) {
+        googleStatus.textContent = error.message || "Accesso Google non disponibile.";
+      }
+    }
+
+    inizializzaAccessoGoogle();
+    forgotPassword.addEventListener("click", async () => {
+      message.classList.remove("success");
+      const email = document.getElementById("email");
+      if (!email.value.trim() || !email.checkValidity()) {
+        message.textContent = "Inserisci prima l’indirizzo email del tuo account.";
+        email.focus();
+        return;
+      }
+      forgotPassword.disabled = true;
+      forgotPassword.textContent = "Invio in corso…";
+      try {
+        const response = await fetch("/api/auth/forgot-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email.value })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.errore || "Non riesco a inviare il link. Riprova.");
+        message.textContent = result.messaggio;
+      } catch (error) {
+        message.textContent = error.message || "Connessione non riuscita. Riprova.";
+      } finally {
+        forgotPassword.disabled = false;
+        forgotPassword.textContent = "Password dimenticata?";
+      }
+    });
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      message.textContent = "";
+      message.classList.remove("success");
+      if (mode === "register" && password.value !== confirmPassword.value) {
+        message.textContent = "Le due password non coincidono.";
+        confirmPassword.focus();
+        return;
+      }
+      submitButton.disabled = true;
+      submitButton.textContent = mode === "register" ? "Creo l’account…" : "Accesso…";
+      try {
+        const response = await fetch(`/api/auth/${mode}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: document.getElementById("email").value, password: password.value })
+        });
+        const tipoRisposta = response.headers.get("content-type") || "";
+        if (!tipoRisposta.includes("application/json")) {
+          throw new Error(`Il server ha restituito una pagina invece dei dati dell’account (HTTP ${response.status}). Riavvia Nexcrank con node server.js dalla cartella del progetto, poi ricarica questa pagina.`);
+        }
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.errore || "Operazione non riuscita. Riprova.");
+        message.classList.add("success");
+        message.textContent = mode === "register" ? "Account creato. Apro la chat…" : "Accesso effettuato. Apro la chat…";
+        window.location.assign("index.html");
+      } catch (error) {
+        message.textContent = error.message || "Connessione non riuscita. Riprova.";
+        submitButton.disabled = false;
+        submitButton.textContent = mode === "register" ? "Crea account" : "Accedi";
+      }
+    });
+  </script>
+  <footer style="padding:18px;text-align:center;color:#8292a8;font:13px system-ui"><a href="privacy.html" style="color:#20c7dc;margin:0 10px">Privacy</a><a href="termini.html" style="color:#20c7dc;margin:0 10px">Termini di servizio</a></footer>
+</body>
+</html>
+

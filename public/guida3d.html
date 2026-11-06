@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexcrank 3D Guide</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; background: #0b1020; color: white; font-family: Arial, sans-serif; }
+header { padding: 22px; border-bottom: 1px solid #273047; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+header h1 { margin: 0; font-size: 23px; }
+header p { color: #9ca9c2; margin-bottom: 0; }
+main { max-width: 1100px; margin: auto; padding: 22px; }
+#viewer { position: relative; width: 100%; height: 540px; background: #111a2c; border: 1px solid #293650; border-radius: 16px; overflow: hidden; }
+.instructions { color: #aab6cc; font-size: 14px; margin-top: 12px; }
+.panel { margin-top: 20px; padding: 20px; background: #151e31; border: 1px solid #293650; border-radius: 14px; }
+.panel h2 { margin-top: 0; }
+@media (max-width: 600px) {
+  #viewer { height: 400px; }
+  #componentInfo {
+    width: min(360px, calc(100vw - 24px));
+    max-height: min(34dvh, 260px);
+    overflow-y: auto;
+    bottom: max(72px, calc(env(safe-area-inset-bottom, 0px) + 16px));
+    padding: 34px 16px 16px;
+  }
+  #componentInfo h2 { font-size: 20px; line-height: 1.25; margin-bottom: 10px; }
+  #componentInfo p { font-size: 15px; line-height: 1.45; margin-bottom: 0; }
+  .close-popup { width: 44px; height: 44px; font-size: 24px; }
+}
+#componentInfo { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; width: min(360px, 90vw); display: none; margin: 0; background: #172033; border: 1px solid #526580; padding: 35px 20px 20px; box-shadow: 0 12px 40px rgba(0,0,0,.55); }
+.close-popup { position: absolute; top: 8px; right: 12px; background: transparent; border: none; color: white; font-size: 25px; cursor: pointer; padding: 0; opacity: .7; }
+.close-popup:hover { opacity: 1; }
+.btn { padding: 11px 16px; border: 0; border-radius: 8px; color: white; cursor: pointer; font-weight: bold; }
+.quiz-btn { background: #10b981; } .quiz-btn:hover { background: #059669; }
+.blue-btn { background: #2479e8; }
+.stop-btn { background: #dc2626; margin-top: 12px; }
+.skip-btn { background: #475569; margin-top: 12px; margin-right: 8px; }
+.quiz-panel { position: relative; overflow: hidden; border-color: #176f7a; background: radial-gradient(ellipse at top right, rgba(34,211,238,.12), transparent 55%), #111a2c; }
+.quiz-panel[hidden] { display: none; }
+.quiz-topline, .quiz-actions, .quiz-stats { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.quiz-topline { margin-bottom: 18px; }
+.quiz-kicker { margin: 0 0 5px; color: #22d3ee; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.quiz-panel h2 { margin: 0; font-size: clamp(20px, 4vw, 26px); }
+.quiz-status { padding: 7px 10px; border: 1px solid #226374; border-radius: 999px; background: #102b3b; color: #67e8f9; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.quiz-progress-meta { display: flex; justify-content: space-between; color: #aab6cc; font-size: 13px; margin-bottom: 8px; }
+.quiz-progress-track { height: 8px; overflow: hidden; border-radius: 99px; background: #28364d; }
+.quiz-progress-bar { width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #22d3ee, #34d399); transition: width .3s ease; }
+.quiz-question-card { margin-top: 18px; padding: 18px; border: 1px solid #2d425c; border-radius: 13px; background: rgba(9,15,29,.62); }
+.quiz-question-label { margin: 0 0 7px; color: #9ca9c2; font-size: 13px; }
+#quizQuestion { margin: 0; font-size: clamp(18px, 4vw, 23px); font-weight: 750; line-height: 1.35; }
+#quizFeedback { min-height: 1.4em; margin: 14px 0; color: #fbbf24; line-height: 1.45; }
+.quiz-stats { justify-content: flex-start; flex-wrap: wrap; margin: 0 0 16px; }
+.quiz-stat { padding: 8px 11px; border: 1px solid #293650; border-radius: 9px; color: #cbd5e1; font-size: 13px; }
+.quiz-actions { justify-content: flex-start; flex-wrap: wrap; }
+.quiz-actions .btn { min-height: 44px; }
+.quiz-secondary { background: #26364d; border: 1px solid #42536d; }
+.quiz-danger { background: transparent; border: 1px solid #75424b; color: #fecaca; }
+.quiz-primary { background: #10b981; }
+.quiz-result { display: none; }
+@media (max-width: 600px) {
+  .quiz-panel { padding: 16px; }
+  .quiz-topline { align-items: flex-start; }
+  .quiz-status { font-size: 11px; }
+  .quiz-question-card { padding: 15px; }
+  .quiz-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .quiz-actions .btn { width: 100%; padding: 11px 10px; }
+}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🔧 Nexcrank 3D Guide</h1>
+    <p>Esplora i principali sistemi della bicicletta in 3D con animazioni e quiz</p>
+  </div>
+<a href="index.html" onclick="if(new URLSearchParams(location.search).get('ritorno')==='chat' && history.length>1){history.back();return false;}" style="color:#22d3ee;text-decoration:none;font-size:13px;font-weight:bold;border:1px solid #22d3ee;padding:8px 14px;border-radius:9px;background:#111a2c;">Torna alla Chat</a>
+</header>
+
+<main>
+  <div id="viewer"></div>
+
+  <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+    <label for="modelSelect">Sistema da esplorare</label>
+    <select id="modelSelect" style="padding:11px 14px;border-radius:9px;background:#18243a;color:white;border:1px solid #526580;font:inherit;">
+      <option value="brake">Freno a disco idraulico</option>
+      <option value="transmission">Trasmissione</option>
+      <option value="fork">Forcella ammortizzata</option>
+      <option value="ebike">Motore e batteria e-bike</option>
+    </select>
+    <button id="startQuizBtn" class="btn quiz-btn">🎯 Sfida componenti</button>
+    <button id="explodedButton" class="btn blue-btn">Mostra componenti separati</button>
+  </div>
+
+  <section id="quizPanel" class="panel quiz-panel" aria-live="polite" hidden>
+    <div class="quiz-topline">
+      <div><p class="quiz-kicker">Sfida interattiva</p><h2 id="quizHeading">Riconosci i componenti</h2></div>
+      <span id="quizStatus" class="quiz-status">IN CORSO</span>
+    </div>
+    <div id="quizRound">
+      <div class="quiz-progress-meta"><span>Progresso</span><span id="quizProgressText">Domanda 1 di 8</span></div>
+      <div class="quiz-progress-track" role="progressbar" aria-label="Progresso del quiz" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0"><div id="quizProgressBar" class="quiz-progress-bar"></div></div>
+      <div class="quiz-question-card"><p class="quiz-question-label">Trova sul modello 3D</p><p id="quizQuestion"></p></div>
+      <p id="quizFeedback" aria-live="polite">Ruota il modello per esplorarlo da ogni lato.</p>
+      <div class="quiz-stats"><span id="quizScore" class="quiz-stat">✅ Corrette: 0</span><span id="quizErrors" class="quiz-stat">❌ Errori: 0</span><span id="quizSkipped" class="quiz-stat">⏭ Saltate: 0</span></div>
+      <div class="quiz-actions"><button id="skipQuizBtn" class="btn quiz-secondary">Salta componente</button><button id="stopQuizBtn" class="btn quiz-danger">Termina sfida</button></div>
+    </div>
+    <div id="quizResult" class="quiz-result">
+      <div class="quiz-question-card"><p class="quiz-question-label">Risultato della sfida</p><p id="quizResultText"></p></div>
+      <p id="quizResultDetail" style="color:#aab6cc;line-height:1.5;"></p>
+      <div class="quiz-actions"><button id="replayQuizBtn" class="btn quiz-primary">Gioca ancora</button><button id="closeQuizBtn" class="btn quiz-secondary">Chiudi</button></div>
+    </div>
+  </section>
+
+  <div id="componentInfo" class="panel" role="dialog" aria-label="Dettaglio componente" aria-live="polite">
+    <button id="closeInfo" class="close-popup" aria-label="Chiudi">×</button>
+    <h2>Seleziona un componente</h2>
+    <p>Clicca su un componente del modello per conoscerlo.</p>
+  </div>
+
+  <p class="instructions">Trascina per ruotare · Rotellina o pizzica per ingrandire · Freno: clicca la leva per azionarla · Forcella: clicca un fodero per comprimerla</p>
+
+  <section class="panel">
+    <h2 id="systemTitle">Freno a disco idraulico</h2>
+    <p id="systemDescription"></p>
+  </section>
+</main>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+
+// =====================================================================
+//  DOM E STATO
+// =====================================================================
+const container = document.getElementById("viewer");
+const componentInfo = document.getElementById("componentInfo");
+const infoTitle = componentInfo.querySelector("h2");
+const infoDescription = componentInfo.querySelector("p");
+const explodedButton = document.getElementById("explodedButton");
+const systemSelect = document.getElementById("modelSelect");
+const systemTitle = document.getElementById("systemTitle");
+const systemDescription = document.getElementById("systemDescription");
+const quizPanel = document.getElementById("quizPanel");
+const quizQuestion = document.getElementById("quizQuestion");
+const quizFeedback = document.getElementById("quizFeedback");
+const quizScoreEl = document.getElementById("quizScore");
+const quizErrorsEl = document.getElementById("quizErrors");
+const quizSkippedEl = document.getElementById("quizSkipped");
+const quizRoundEl = document.getElementById("quizRound");
+const quizResultEl = document.getElementById("quizResult");
+const quizProgressText = document.getElementById("quizProgressText");
+const quizProgressBar = document.getElementById("quizProgressBar");
+const quizProgressTrack = document.querySelector(".quiz-progress-track");
+const quizHeading = document.getElementById("quizHeading");
+const quizStatus = document.getElementById("quizStatus");
+const quizResultText = document.getElementById("quizResultText");
+const quizResultDetail = document.getElementById("quizResultDetail");
+
+let quizActive = false, currentQuizTarget = null, quizTimer = null;
+let correctCount = 0, wrongTotal = 0, wrongCount = 0, hintUntil = 0;
+let quizTargets = [], quizIndex = 0, quizSkippedCount = 0;
+let exploded = false, explodeAmt = 0;
+let activeGroup = null, activeParts = [], activeViewKey = "brake";
+let selectedPart = null;   // componente cliccato (popup aperto): viene evidenziato
+
+// =====================================================================
+//  SCENA
+// =====================================================================
+const scene = new THREE.Scene();
+scene.background = new THREE.Color("#111a2c");
+
+const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 200);
+camera.position.set(4, 3, 8);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+container.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+// Environment map: senza di essa i metalli risultano quasi neri
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+const sun = new THREE.DirectionalLight(0xffffff, 1.4);
+sun.position.set(4, 6, 7);
+scene.add(sun);
+
+// =====================================================================
+//  UTILITÀ GEOMETRICHE
+// =====================================================================
+const TAU = Math.PI * 2;
+const rad = d => d * Math.PI / 180;
+const V3 = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+
+const mat = (color, metalness = 0.85, roughness = 0.3, extra = {}) =>
+  new THREE.MeshStandardMaterial({ color, metalness, roughness, ...extra });
+
+// Cilindro con asse x/y/z; r = raggio verso +asse, r2 = raggio verso -asse
+function cyl(r, len, axis = "y", pos = [0, 0, 0], seg = 40, r2 = r) {
+  const g = new THREE.CylinderGeometry(r, r2, len, seg);
+  if (axis === "x") g.rotateZ(-Math.PI / 2);
+  else if (axis === "z") g.rotateX(Math.PI / 2);
+  g.translate(pos[0], pos[1], pos[2]);
+  return g;
+}
+
+function rbox(w, h, d, r = 0.03, pos = [0, 0, 0], rotZ = 0, seg = 4) {
+  const rr = Math.min(r, w / 2 - 1e-4, h / 2 - 1e-4, d / 2 - 1e-4);
+  const g = new RoundedBoxGeometry(w, h, d, seg, rr);
+  if (rotZ) g.rotateZ(rotZ);
+  g.translate(pos[0], pos[1], pos[2]);
+  return g;
+}
+
+// Estrusione centrata su z; con smusso lo spessore totale è depth + 2*bevel
+function extrude(shape, depth, bevel = 0, curveSegments = 16) {
+  const g = new THREE.ExtrudeGeometry(shape, {
+    depth, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel,
+    bevelSegments: 2, curveSegments, steps: 1
+  });
+  g.translate(0, 0, -depth / 2);
+  return g;
+}
+
+function merge(list) {
+  const prepared = list.map(g => (g.index ? g.toNonIndexed() : g));
+  const out = mergeGeometries(prepared, false);
+  list.forEach(g => g.dispose());
+  return out;
+}
+
+function circlePath(x, y, r, clockwise = true) {
+  const p = new THREE.Path();
+  p.absarc(x, y, r, 0, TAU, clockwise);
+  return p;
+}
+
+// Registra una mesh nel gruppo con i metadati usati da quiz, vista esplosa e animazioni
+function registerMesh(group, mesh, name, desc, opts = {}) {
+  const { pos = [0, 0, 0], rot = [0, 0, 0], slide = null, rotZ = 0, explodeVec = null, toggle = false } = opts;
+  mesh.position.set(pos[0], pos[1], pos[2]);
+  mesh.rotation.set(rot[0], rot[1], rot[2]);
+  const u = mesh.userData;
+  u.nome = name;
+  u.descrizione = desc;
+  u.slide = slide ? V3(...slide) : null;
+  u.rotZ = rotZ;
+  u.toggle = toggle;
+  u.explodeVec = explodeVec ? V3(...explodeVec) : null;
+  u.explodeDir = V3();
+  u.base = mesh.position.clone();
+  u.baseEm = { color: mesh.material.emissive.clone(), intensity: mesh.material.emissiveIntensity };
+  group.add(mesh);
+  return mesh;
+}
+
+// Ogni mesh riceve un clone del materiale: serve per evidenziare una singola parte
+function part(group, geometry, material, name, desc, opts = {}) {
+  return registerMesh(group, new THREE.Mesh(geometry, material.clone()), name, desc, opts);
+}
+
+function newAssembly() {
+  const g = new THREE.Group();
+  scene.add(g);
+  return g;
+}
+
+// Ingranaggio / corona dentata: denti con fianchi, fondo del vano e alleggerimenti
+function cogGeometry(T, p, thick, opts = {}) {
+  const R = (p * T) / TAU, a = TAU / T;
+  const rr = R - 0.31 * p, rt = R + 0.25 * p;
+  const prof = [[-0.30, rr], [-0.19, R], [-0.09, rt], [0.09, rt], [0.19, R], [0.30, rr],
+                [0.40, rr - 0.04 * p], [0.50, rr - 0.06 * p], [0.60, rr - 0.04 * p]];
+  const shape = new THREE.Shape();
+  let first = true;
+  for (let k = 0; k < T; k++) {
+    for (const [f, r] of prof) {
+      const ang = (k + f) * a;
+      const x = Math.cos(ang) * r, y = Math.sin(ang) * r;
+      if (first) { shape.moveTo(x, y); first = false; } else shape.lineTo(x, y);
+    }
+  }
+  shape.closePath();
+  shape.holes.push(circlePath(0, 0, opts.bore ?? 0.15));
+  if (opts.holes) {
+    const { count, rin, rout, gap } = opts.holes;
+    for (let i = 0; i < count; i++) {
+      const a0 = (i * TAU) / count + gap / 2, a1 = ((i + 1) * TAU) / count - gap / 2;
+      const h = new THREE.Path();
+      h.absarc(0, 0, rout, a0, a1, false);
+      h.absarc(0, 0, rin, a1, a0, true);
+      h.closePath();
+      shape.holes.push(h);
+    }
+  }
+  return extrude(shape, thick, 0, 8);
+}
+
+// Pedivella rastremata con occhio per l'asse del pedale (outward = ±1 verso z)
+function crankGeometry(len, rA, rB, depth, bevel, outward = 1) {
+  const s = new THREE.Shape();
+  s.moveTo(0, rA);
+  s.lineTo(len, rB);
+  s.absarc(len, 0, rB, Math.PI / 2, -Math.PI / 2, true);
+  s.lineTo(0, -rA);
+  s.absarc(0, 0, rA, -Math.PI / 2, -3 * Math.PI / 2, true);
+  s.closePath();
+  const half = depth / 2 + bevel;
+  return merge([
+    extrude(s, depth, bevel, 20),
+    cyl(rB * 0.42, 0.34, "z", [len, 0, outward * (half + 0.17)], 20),
+    cyl(rA * 0.55, 0.04, "z", [0, 0, outward * (half + 0.02)], 6)
+  ]);
+}
+// =====================================================================
+//  1. FRENO A DISCO IDRAULICO
+//  Disco nel piano XY, asse ruota = z, spessore pista ±0.035
+// =====================================================================
+const brake = newAssembly();
+const CX = 1.575;                // centro radiale della pista frenante
+const steelMat = mat(0xaab3c0, 0.92, 0.28);
+const anodMat = mat(0x4a5565, 0.9, 0.3);
+const goldMat = mat(0xd4a73c, 0.9, 0.28);
+const rubberMat = mat(0x15181d, 0.2, 0.75);
+
+// Pista frenante con due corone di fori di raffreddamento
+{
+  const s = new THREE.Shape();
+  s.absarc(0, 0, 1.8, 0, TAU, false);
+  s.holes.push(circlePath(0, 0, 1.35));
+  for (let i = 0; i < 36; i++) { const a = (i / 36) * TAU; s.holes.push(circlePath(Math.cos(a) * 1.68, Math.sin(a) * 1.68, 0.032)); }
+  for (let i = 0; i < 24; i++) { const a = ((i + 0.5) / 24) * TAU; s.holes.push(circlePath(Math.cos(a) * 1.49, Math.sin(a) * 1.49, 0.048)); }
+  part(brake, extrude(s, 0.07, 0, 14), steelMat, "Pista frenante",
+    "Superficie d'acciaio su cui si chiudono le pastiglie: i fori scaricano calore e acqua.");
+}
+
+// Spider: anello centrale + 6 bracci sagomati
+{
+  const list = [];
+  const ring = new THREE.Shape();
+  ring.absarc(0, 0, 0.72, 0, TAU, false);
+  ring.holes.push(circlePath(0, 0, 0.43));
+  list.push(extrude(ring, 0.05, 0.008, 40));
+  for (let i = 0; i < 6; i++) {
+    const s = new THREE.Shape();
+    s.moveTo(0.58, -0.13);
+    s.quadraticCurveTo(0.78, -0.19, 1.05, -0.12);
+    s.lineTo(1.37, -0.075);
+    s.lineTo(1.37, 0.075);
+    s.lineTo(1.05, 0.12);
+    s.quadraticCurveTo(0.78, 0.19, 0.58, 0.13);
+    s.closePath();
+    const g = extrude(s, 0.05, 0.008, 10);
+    g.rotateZ((i / 6) * TAU);
+    list.push(g);
+  }
+  part(brake, merge(list), mat(0xb8c1cc, 0.95, 0.22), "Spider del disco",
+    "Il supporto centrale a 6 bracci collega la pista frenante al mozzo e la lascia dilatare col calore.");
+}
+
+// Viti (6, esagonali) e rivetti di giunzione spider-pista
+{
+  const list = [];
+  for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU; list.push(cyl(0.05, 0.04, "z", [Math.cos(a) * 0.62, Math.sin(a) * 0.62, 0.053], 6)); }
+  part(brake, merge(list), mat(0x171d27, 0.75, 0.3), "Viti del disco",
+    "Sei viti fissano lo spider alla flangia del mozzo (sistema a 6 fori).");
+  const riv = [];
+  for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU + 0.26; riv.push(cyl(0.04, 0.1, "z", [Math.cos(a) * 1.42, Math.sin(a) * 1.42, 0], 16)); }
+  part(brake, merge(riv), mat(0x8c98a7, 0.9, 0.3), "Rivetti del disco",
+    "Uniscono la pista frenante ai bracci dello spider.");
+}
+
+// Mozzo: asse, corpo e flangia di appoggio del disco
+part(brake, merge([
+  cyl(0.09, 0.9, "z"), cyl(0.26, 0.6, "z", [0, 0, 0], 48), cyl(0.5, 0.1, "z", [0, 0, 0], 56),
+  cyl(0.14, 0.04, "z", [0, 0, 0.47], 24), cyl(0.14, 0.04, "z", [0, 0, -0.47], 24)
+]), mat(0x56647a, 0.7, 0.4), "Mozzo",
+  "Il mozzo è il centro della ruota: la flangia sostiene il disco e l'asse passa nella forcella.");
+
+// ---- Pinza: due semicorpi simmetrici con alloggiamenti pistoni, uniti dal ponte ----
+{
+  const s = new THREE.Shape();
+  s.moveTo(-0.30, -0.36);
+  s.lineTo(0.18, -0.52);
+  s.quadraticCurveTo(0.42, -0.50, 0.44, -0.28);
+  s.lineTo(0.44, 0.28);
+  s.quadraticCurveTo(0.42, 0.50, 0.18, 0.52);
+  s.lineTo(-0.30, 0.36);
+  s.quadraticCurveTo(-0.38, 0.30, -0.38, 0.20);
+  s.lineTo(-0.38, -0.20);
+  s.quadraticCurveTo(-0.38, -0.30, -0.30, -0.36);
+  s.closePath();
+  s.holes.push(circlePath(0.02, 0.215, 0.16), circlePath(0.02, -0.215, 0.16));
+  const valveGeo = extrude(s, 0.17, 0.015, 20);          // spessore totale 0.2
+  part(brake, valveGeo, anodMat, "Semicorpo interno della pinza",
+    "Prima metà del corpo pinza: contiene due pistoni e la pastiglia interna.",
+    { pos: [CX, 0, -0.215], explodeVec: [0, 0, -1.2] });
+  part(brake, valveGeo.clone(), anodMat, "Semicorpo esterno della pinza",
+    "Seconda metà del corpo pinza, speculare alla prima: i due pistoni spingono la pastiglia esterna.",
+    { pos: [CX, 0, 0.215], explodeVec: [0, 0, 1.2] });
+}
+
+part(brake, rbox(0.2, 0.62, 0.63, 0.05, [1.94, 0, 0]), mat(0x353f4a, 0.85, 0.35),
+  "Ponte della pinza",
+  "Passa oltre il bordo del disco e unisce i due semicorpi; porta il liquido freni da una metà all'altra.",
+  { explodeVec: [0.9, 0, 0] });
+
+// Pastiglie (settore d'anello come la pista) e piastre di supporto
+function padSector(r0, r1, half) {
+  const s = new THREE.Shape();
+  s.absarc(0, 0, r1, -half, half, false);
+  s.absarc(0, 0, r0, half, -half, true);
+  s.closePath();
+  return s;
+}
+const PAD_TRAVEL = 0.025;
+const padGeo = extrude(padSector(1.38, 1.77, 0.26), 0.035, 0, 24);
+const plateGeo = extrude(padSector(1.38, 1.77, 0.26), 0.015, 0, 24);
+for (const side of [-1, 1]) {
+  const label = side < 0 ? "interna" : "esterna";
+  part(brake, padGeo.clone(), mat(0x2a2d33, 0.1, 0.9), `Pastiglia del freno ${label}`,
+    "Materiale d'attrito: si stringe sulla pista frenante e converte l'energia del moto in calore.",
+    { pos: [0, 0, side * 0.0775], slide: [0, 0, -side * PAD_TRAVEL], explodeVec: [0.25, 0, side * 0.55] });
+  part(brake, plateGeo.clone(), mat(0x6b7482, 0.9, 0.35), `Piastra della pastiglia ${label}`,
+    "Supporto metallico della pastiglia, su cui spinge il pistone.",
+    { pos: [0, 0, side * 0.1025], slide: [0, 0, -side * PAD_TRAVEL], explodeVec: [0.25, 0, side * 0.8] });
+}
+
+// Pistoni: due per lato, alloggiati nei fori dei semicorpi
+for (const side of [-1, 1]) {
+  part(brake, merge([
+    cyl(0.12, 0.19, "z", [CX + 0.02, 0.215, side * 0.205], 40),
+    cyl(0.12, 0.19, "z", [CX + 0.02, -0.215, side * 0.205], 40)
+  ]), mat(0xd5dbe5, 0.85, 0.25), "Pistone idraulico",
+    "Il liquido freni in pressione spinge il pistone, che a sua volta preme la pastiglia sul disco.",
+    { slide: [0, 0, -side * PAD_TRAVEL], explodeVec: [0.4, 0, side * 1.0] });
+}
+
+// Vite di spurgo (sul bordo superiore del semicorpo esterno)
+part(brake, merge([
+  cyl(0.04, 0.14, "y", [CX - 0.05, 0.53, 0.215], 6), cyl(0.052, 0.03, "y", [CX - 0.05, 0.63, 0.215], 16)
+]), goldMat, "Vite di spurgo",
+  "Permette di far uscire le bolle d'aria dal circuito durante lo spurgo.", { explodeVec: [0, 0.6, 1.2] });
+
+// Raccordo banjo sul semicorpo esterno: occhio, vite cava e bocchettone verso l'alto
+part(brake, merge([
+  cyl(0.085, 0.03, "z", [1.925, 0.22, 0.33], 32),
+  cyl(0.05, 0.05, "z", [1.925, 0.22, 0.37], 6),
+  cyl(0.04, 0.3, "y", [1.925, 0.36, 0.33], 20),
+  cyl(0.058, 0.05, "y", [1.925, 0.52, 0.33], 20)
+]), goldMat, "Raccordo banjo",
+  "Il raccordo ad occhiello fissa il tubo alla pinza con una vite cava attraverso cui passa il liquido freni.",
+  { explodeVec: [0.4, 0.3, 1.4] });
+
+// ---- Manubrio, pompa, serbatoio e leva ----
+part(brake, new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+  V3(1.62, 2.17, -0.04), V3(1.78, 2.19, -0.015), V3(1.98, 2.2, 0.025),
+  V3(2.18, 2.2, 0), V3(3.38, 2.2, 0), V3(3.58, 2.19, 0.02), V3(3.8, 2.18, 0.005), V3(3.98, 2.16, -0.035)
+], false, "centripetal"), 96, 0.06, 24, false), mat(0x202630, 0.75, 0.35), "Manubrio",
+  "Il manubrio permette al ciclista di controllare la direzione e sostiene la pompa del freno.");
+part(brake, merge([
+  cyl(0.085, 0.8, "x", [3.55, 2.2, 0], 32),
+  cyl(0.09, 0.03, "x", [3.965, 2.2, 0], 32),
+  ...Array.from({ length: 16 }, (_, i) => cyl(0.09, 0.018, "x", [3.19 + i * 0.05, 2.2, 0], 24))
+]), mat(0xc96826, 0.0, 0.98), "Manopola", "Impugnatura in gomma morbida con nervature per una presa confortevole.");
+part(brake, merge([cyl(0.1, 0.12, "x", [1.98, 2.2, 0], 32), cyl(0.1, 0.12, "x", [2.68, 2.2, 0], 32),
+  cyl(0.035, 0.09, "y", [1.98, 2.3, 0], 6), cyl(0.035, 0.09, "y", [2.68, 2.3, 0], 6)]),
+  mat(0x353f4a, 0.85, 0.35), "Fascette del manubrio", "Bloccano la pompa del freno sul manubrio.");
+part(brake, rbox(0.56, 0.3, 0.22, 0.07, [2.33, 2.22, 0]), mat(0x1c2430, 0.7, 0.35),
+  "Pompa del freno",
+  "Il cilindro maestro: la leva spinge il suo stantuffo e mette in pressione il liquido freni nel tubo.");
+part(brake, cyl(0.095, 0.12, "y", [2.33, 2.43, 0], 32), mat(0x2b3442, 0.6, 0.4), "Serbatoio del liquido freni",
+  "Contiene il liquido freni di riserva e compensa l'usura delle pastiglie.");
+part(brake, cyl(0.105, 0.025, "y", [2.33, 2.505, 0], 32), goldMat, "Tappo del serbatoio",
+  "Chiude il serbatoio e impedisce all'aria di entrare.");
+part(brake, cyl(0.05, 0.12, "z", [2.45, 2.17, 0.15], 24), goldMat, "Raccordo della pompa",
+  "Uscita del tubo idraulico dalla pompa.");
+part(brake, cyl(0.04, 0.2, "z", [2.10, 2.10, 0], 20), mat(0x9aa3b0, 0.9, 0.3), "Perno della leva",
+  "Il perno attorno a cui ruota la leva.");
+
+// Leva: la mesh sta sul perno, così ruota attorno alla propria cerniera
+const lv = new THREE.Shape();
+lv.moveTo(-0.07, 0.07);
+lv.quadraticCurveTo(0.02, 0.11, 0.12, 0.02);
+lv.lineTo(0.40, -0.26);
+lv.quadraticCurveTo(0.50, -0.36, 0.55, -0.48);
+lv.quadraticCurveTo(0.58, -0.55, 0.52, -0.57);
+lv.quadraticCurveTo(0.46, -0.58, 0.42, -0.52);
+lv.quadraticCurveTo(0.32, -0.40, 0.22, -0.30);
+lv.lineTo(-0.04, -0.06);
+lv.quadraticCurveTo(-0.10, 0.0, -0.07, 0.07);
+lv.holes.push(circlePath(0, 0, 0.03));
+part(brake, extrude(lv, 0.05, 0.012, 16), mat(0xe0702a, 0.8, 0.3), "Leva del freno",
+  "Paletta ergonomica che ruota sul proprio perno. Cliccala per azionare l'impianto!",
+  { pos: [2.10, 2.10, 0], rotZ: 0.22, toggle: true });
+
+// Tubo idraulico: curva fluida dalla pompa al banjo della pinza
+{
+  const curve = new THREE.CatmullRomCurve3([
+    V3(2.45, 2.17, 0.20), V3(2.45, 2.12, 0.34), V3(2.55, 1.88, 0.52), V3(2.47, 1.36, 0.62),
+    V3(2.22, 1.00, 0.52), V3(1.99, 0.80, 0.40), V3(1.935, 0.66, 0.34), V3(1.925, 0.55, 0.33)
+  ], false, "centripetal");
+  part(brake, new THREE.TubeGeometry(curve, 180, 0.034, 14, false), rubberMat, "Tubo idraulico",
+    "Tubo flessibile pieno di liquido freni: porta la pressione dalla pompa alla pinza.");
+}
+
+// =====================================================================
+//  2. TRASMISSIONE (corona 32T, cassetta 12 velocità, catena chiusa)
+// =====================================================================
+const transmission = newAssembly();
+const P = 0.2;                                  // passo della catena
+const FRONT_T = 32;
+const CASSETTE = [10, 12, 14, 16, 18, 21, 24, 28, 33, 39, 45, 51];
+const WORK = 6;                                 // pignone in presa (24T)
+const COG_STEP = 0.052;
+const PINS = 92;                                // numero di perni (pari: maglie esterne e interne si alternano)
+const R1 = (P * FRONT_T) / TAU, R2 = (P * CASSETTE[WORK]) / TAU;
+
+// Cambio posteriore: coordinate relative all'asse della ruota posteriore (x verso la corona, y verso l'alto)
+const RP = (P * 12) / TAU;                       // puleggia da 12 denti
+const RD_H = { x: -0.42, y: -0.92 };             // vite di fissaggio sul forcellino (dietro e sotto l'asse)
+const RD_U = { x: 0.673, y: -0.740 };            // direzione dei bracci del parallelogramma
+const RD_N = { x: 0.740, y: 0.673 };             // normale ai bracci
+const RD_LINK = 0.62;                            // lunghezza dei bracci
+const RD_G = { x: RD_H.x + RD_U.x * RD_LINK, y: RD_H.y + RD_U.y * RD_LINK };   // puleggia di guida (asse gabbia)
+const RD_CAGE_ANG = rad(32);                     // inclinazione della gabbia all'indietro rispetto alla verticale
+const RD_T = { x: RD_G.x - Math.sin(RD_CAGE_ANG) * 1.05, y: RD_G.y - Math.cos(RD_CAGE_ANG) * 1.05 };   // puleggia di tensione
+const RD_Z_HANGER = 0.40, RD_Z_BODY = 0.50, RD_Z_P = 0.155;                    // quote lungo z
+
+// Percorso della cinghia/catena: tangenti esatte tra cerchi orientati + archi di avvolgimento
+function buildBelt(circles) {
+  const n = circles.length, tang = [];
+  for (let i = 0; i < n; i++) {
+    const A = circles[i], B = circles[(i + 1) % n];
+    const dx = B.c.x - A.c.x, dy = B.c.y - A.c.y, L = Math.hypot(dx, dy);
+    const delta = B.s * B.r - A.s * A.r;
+    const psi = Math.atan2(dy, dx) + Math.asin(-delta / L);
+    const Nx = Math.sin(psi), Ny = -Math.cos(psi);
+    tang.push({
+      Nx, Ny,
+      p0: new THREE.Vector2(A.c.x + A.s * A.r * Nx, A.c.y + A.s * A.r * Ny),
+      p1: new THREE.Vector2(B.c.x + B.s * B.r * Nx, B.c.y + B.s * B.r * Ny)
+    });
+  }
+  const items = [], arcInfo = [];
+  let acc = 0;
+  for (let i = 0; i < n; i++) {
+    const C = circles[i], prev = tang[(i - 1 + n) % n], next = tang[i];
+    const aArr = Math.atan2(C.s * prev.Ny, C.s * prev.Nx);
+    const aDep = Math.atan2(C.s * next.Ny, C.s * next.Nx);
+    let sweep = C.s > 0 ? aDep - aArr : aArr - aDep;
+    sweep = ((sweep % TAU) + TAU) % TAU;
+    const arcLen = sweep * C.r;
+    items.push({ type: "arc", c: C.c, r: C.r, s: C.s, a0: aArr, len: arcLen });
+    arcInfo.push({ aArr, start: acc });
+    acc += arcLen;
+    const lineLen = next.p0.distanceTo(next.p1);
+    items.push({ type: "line", p0: next.p0, p1: next.p1, len: lineLen });
+    acc += lineLen;
+  }
+  const total = acc;
+  function pointAt(s, out) {
+    s = ((s % total) + total) % total;
+    for (const it of items) {
+      if (s < it.len) {
+        if (it.type === "arc") {
+          const ang = it.a0 + it.s * (s / it.r);
+          return out.set(it.c.x + it.r * Math.cos(ang), it.c.y + it.r * Math.sin(ang));
+        }
+        const t = s / it.len;
+        return out.set(it.p0.x + (it.p1.x - it.p0.x) * t, it.p0.y + (it.p1.y - it.p0.y) * t);
+      }
+      s -= it.len;
+    }
+    return out.copy(items[items.length - 1].p1);
+  }
+  return { total, arcInfo, pointAt };
+}
+
+// Interasse risolto in modo che la catena chiusa contenga esattamente PINS passi
+const makeBelt = D => buildBelt([
+  { c: new THREE.Vector2(0, 0), r: R1, s: 1 },
+  { c: new THREE.Vector2(-D, 0), r: R2, s: 1 },
+  { c: new THREE.Vector2(-D + RD_G.x, RD_G.y), r: RP, s: -1 },
+  { c: new THREE.Vector2(-D + RD_T.x, RD_T.y), r: RP, s: 1 }
+]);
+let lo = R1 + 0.5, hi = 14;
+for (let i = 0; i < 60; i++) {
+  const mid = (lo + hi) / 2;
+  if (makeBelt(mid).total < PINS * P) lo = mid; else hi = mid;
+}
+const CHAIN_D = (lo + hi) / 2;
+const belt = makeBelt(CHAIN_D);
+// Corona anteriore con 5 bracci (spider) e relative viti
+const frontRing = part(transmission,
+  cogGeometry(FRONT_T, P, 0.02, { bore: 0.16, holes: { count: 5, rin: 0.36, rout: 0.74, gap: 0.3 } }),
+  mat(0x94a3b8, 0.94, 0.24), `Corona anteriore ${FRONT_T}T`,
+  `Corona singola da ${FRONT_T} denti: una sola corona rende inutile il deragliatore anteriore.`,
+  { explodeVec: [0.9, 0, 0] });
+const frontBolts = part(transmission, merge(Array.from({ length: 5 }, (_, i) => {
+  const a = (i / 5) * TAU;
+  return cyl(0.045, 0.04, "z", [Math.cos(a) * 0.86, Math.sin(a) * 0.86, 0.03], 6);
+})), mat(0x171d27, 0.75, 0.3), "Viti della corona",
+  "Cinque viti fissano la corona ai bracci della guarnitura.", { explodeVec: [0.9, 0, 0.5] });
+const CRANK0 = -1.1;
+const crankArm = part(transmission, crankGeometry(1.7, 0.24, 0.12, 0.07, 0.012), mat(0x9aa4b2, 0.9, 0.3),
+  "Pedivella", "Trasmette la forza delle gambe all'asse del movimento centrale.",
+  { pos: [0, 0, 0.105], rot: [0, 0, CRANK0], explodeVec: [0.9, 0, 1.0] });
+part(transmission, merge([
+  cyl(0.13, 0.82, "z", [0, 0, -0.24], 40), cyl(0.22, 0.3, "z", [0, 0, -0.35], 40), cyl(0.2, 0.06, "z", [0, 0, -0.52], 40)
+]), mat(0x56647a, 0.8, 0.35), "Movimento centrale",
+  "Asse e coppe dei cuscinetti su cui ruota la guarnitura.", { explodeVec: [0.9, 0, -0.7] });
+
+// Cassetta: 12 pignoni di dimensione crescente, sfalsati lungo z
+const cogMeshes = [];
+const cMin = new THREE.Color(0xaab8cc), cMax = new THREE.Color(0x7384a0);   // grigio metallico medio: più chiaro sui pignoni piccoli, più scuro sui grandi
+CASSETTE.forEach((T, i) => {
+  const Rr = (P * T) / TAU;
+  const big = T >= 33;
+  const geo = cogGeometry(T, P, 0.018, {
+    bore: 0.148,
+    holes: big ? { count: 5, rin: 0.3, rout: Rr * 0.72, gap: 0.28 } : null
+  });
+  const col = new THREE.Color().lerpColors(cMin, cMax, i / (CASSETTE.length - 1));
+  const m = part(transmission, geo, mat(col, 0.94, 0.24),
+    i === WORK ? `Pignone ${T}T (in presa)` : `Pignone ${T}T`,
+    i === WORK
+      ? `Pignone da ${T} denti su cui la catena è avvolta in questo momento.`
+      : `Pignone da ${T} denti della cassetta a 12 velocità: i pignoni grandi danno rapporti agili, i piccoli rapporti duri.`,
+    { pos: [-CHAIN_D, 0, (WORK - i) * COG_STEP], explodeVec: [-0.9, 0, (WORK - i) * 0.4] });
+  cogMeshes.push(m);
+});
+part(transmission, cyl(0.15, 0.83, "z", [-CHAIN_D, 0, -0.085], 40), mat(0x6b7482, 0.9, 0.35),
+  "Corpo ruota libera", "Il freehub: con il suo meccanismo a cricchetti consente di non pedalare in discesa.",
+  { explodeVec: [-0.9, -0.8, 0] });
+part(transmission, cyl(0.17, 0.045, "z", [-CHAIN_D, 0, 0.3435], 40), goldMat, "Ghiera della cassetta",
+  "Blocca l'intera cassetta sul corpo ruota libera.", { explodeVec: [-0.9, 0, 2.6] });
+part(transmission, merge([
+  cyl(0.17, 0.5, "z", [-CHAIN_D, 0, -0.72], 40), cyl(0.48, 0.04, "z", [-CHAIN_D, 0, -0.95], 48),
+  cyl(0.065, 1.7, "z", [-CHAIN_D, 0, -0.4], 24), cyl(0.12, 0.05, "z", [-CHAIN_D, 0, 0.45], 6)
+]), mat(0x56647a, 0.7, 0.4), "Mozzo posteriore",
+  "Corpo del mozzo con flangia per i raggi e asse passante.", { explodeVec: [-0.9, 0.8, -0.9] });
+
+// ---- Forcellino, cambio posteriore e gabbia ----
+// Profilo "a capsula" tra due cerchi (per forcellino e piastre della gabbia)
+function capsule2D(p0, r0, p1, r1) {
+  const th = Math.atan2(p1.y - p0.y, p1.x - p0.x) + Math.PI / 2;
+  const c = Math.cos(th), sn = Math.sin(th);
+  const s = new THREE.Shape();
+  s.moveTo(p0.x + c * r0, p0.y + sn * r0);
+  s.lineTo(p1.x + c * r1, p1.y + sn * r1);
+  s.absarc(p1.x, p1.y, r1, th, th - Math.PI, true);
+  s.lineTo(p0.x - c * r0, p0.y - sn * r0);
+  s.absarc(p0.x, p0.y, r0, th - Math.PI, th - TAU, true);
+  s.closePath();
+  return s;
+}
+const rdShift = list => { list.forEach(g => g.translate(-CHAIN_D, 0, 0)); return list; };
+
+// Forcellino: linguetta sagomata con foro per l'asse e foro filettato per la vite del cambio
+{
+  const s = capsule2D({ x: 0, y: 0 }, 0.21, RD_H, 0.12);
+  s.holes.push(circlePath(0, 0, 0.09), circlePath(RD_H.x, RD_H.y, 0.045));
+  const g = extrude(s, 0.04, 0.004, 24);
+  g.translate(-CHAIN_D, 0, RD_Z_HANGER);
+  part(transmission, g, mat(0x8a96a8, 0.9, 0.3), "Forcellino",
+    "Linguetta sagomata fissata al fodero del telaio, accanto all'asse della ruota: è il punto a cui si aggancia il cambio. Essendo sacrificale, in caso di caduta si piega al posto del telaio.",
+    { explodeVec: [-0.4, -0.3, 1.3] });
+}
+
+// Cambio posteriore: corpo fissato al forcellino, parallelogramma articolato e supporto della gabbia
+{
+  const ang = Math.atan2(RD_N.y, RD_N.x);
+  const link = (a, b) => {
+    const d = b.clone().sub(a);
+    const g = rbox(d.length(), 0.085, 0.06, 0.025);
+    g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(V3(1, 0, 0), d.clone().normalize()));
+    const m = a.clone().add(b).multiplyScalar(0.5);
+    g.translate(m.x, m.y, m.z);
+    return g;
+  };
+  const list = [
+    rbox(0.46, 0.2, 0.14, 0.05, [RD_H.x, RD_H.y, RD_Z_BODY], ang),                 // corpo (B-knuckle)
+    cyl(0.04, 0.2, "z", [RD_H.x, RD_H.y, 0.47], 16),                              // vite di fissaggio
+    cyl(0.075, 0.03, "z", [RD_H.x, RD_H.y, 0.585], 6),
+    rbox(0.46, 0.18, 0.12, 0.05, [RD_G.x, RD_G.y, RD_Z_P], ang),                   // supporto della gabbia (P-knuckle)
+    cyl(0.085, 0.05, "z", [RD_G.x, RD_G.y, RD_Z_P + 0.085], 24)
+  ];
+  for (const k of [-0.14, 0.14]) {
+    const bx = RD_H.x + RD_N.x * k, by = RD_H.y + RD_N.y * k;
+    const px = RD_G.x + RD_N.x * k, py = RD_G.y + RD_N.y * k;
+    list.push(link(V3(bx, by, RD_Z_BODY), V3(px, py, RD_Z_P)));                    // bracci del parallelogramma
+    list.push(cyl(0.06, 0.1, "z", [bx, by, RD_Z_BODY], 20), cyl(0.06, 0.12, "z", [px, py, RD_Z_P], 20));
+  }
+  part(transmission, merge(rdShift(list)), mat(0x3b4658, 0.8, 0.35), "Cambio posteriore",
+    "Il cambio sposta la catena tra i pignoni: un parallelogramma articolato lo fa scorrere di lato, mentre la molla della gabbia mantiene la catena in tensione.",
+    { explodeVec: [-0.8, -0.5, 1.6] });
+}
+
+// Gabbia: due piastre con perni, tra cui girano le due pulegge
+{
+  const mk = zc => {
+    const s = capsule2D(RD_G, 0.15, RD_T, 0.13);
+    s.holes.push(circlePath(RD_G.x, RD_G.y, 0.045), circlePath(RD_T.x, RD_T.y, 0.045));
+    const g = extrude(s, 0.02, 0, 20);
+    g.translate(-CHAIN_D, 0, zc);
+    return g;
+  };
+  part(transmission, merge([
+    mk(0.063), mk(-0.063),
+    ...rdShift([cyl(0.04, 0.2, "z", [RD_G.x, RD_G.y, 0], 16), cyl(0.04, 0.2, "z", [RD_T.x, RD_T.y, 0], 16)])
+  ]), anodMat, "Gabbia del cambio",
+    "La gabbia regge le due pulegge e ruota sul proprio perno: la molla tende la catena e assorbe la differenza di lunghezza tra i pignoni.",
+    { explodeVec: [-0.2, -1.0, -0.8] });
+}
+
+const rdJockey = (name, desc, c, ev) => part(transmission,
+  merge([cogGeometry(12, P, 0.03, { bore: 0.05 }), cyl(0.11, 0.05, "z", [0, 0, 0], 24)]),
+  mat(0xb9c3ce, 0.9, 0.3), name, desc, { pos: [-CHAIN_D + c.x, c.y, 0], explodeVec: ev });
+const rdPulleyG = rdJockey("Puleggia di guida",
+  "Puleggia superiore da 12 denti: guida la catena sotto il pignone in presa.", RD_G, [0.1, -0.7, 0.9]);
+const rdPulleyT = rdJockey("Puleggia di tensione",
+  "Puleggia inferiore da 12 denti: la molla della gabbia la spinge per tenere tesa la catena.", RD_T, [-0.1, -1.1, 0.9]);
+
+// Catena: maglie esterne e interne istanziate, lungo il percorso chiuso
+function chainPlateShape() {
+  const R = 0.056, w = 0.04, s = new THREE.Shape();
+  s.moveTo(0, R);
+  s.quadraticCurveTo(P / 2, 2 * w - R, P, R);
+  s.absarc(P, 0, R, Math.PI / 2, -Math.PI / 2, true);
+  s.quadraticCurveTo(P / 2, -(2 * w - R), 0, -R);
+  s.absarc(0, 0, R, -Math.PI / 2, -3 * Math.PI / 2, true);
+  s.closePath();
+  return s;
+}
+function plateAt(z0, z1) {
+  const g = new THREE.ExtrudeGeometry(chainPlateShape(), { depth: z1 - z0, bevelEnabled: false, curveSegments: 10 });
+  g.translate(0, 0, z0);
+  return g;
+}
+const outerLinkGeo = merge([
+  plateAt(0.030, 0.042), plateAt(-0.042, -0.030),
+  cyl(0.022, 0.092, "z", [0, 0, 0], 14), cyl(0.022, 0.092, "z", [P, 0, 0], 14)
+]);
+const innerLinkGeo = merge([
+  plateAt(0.018, 0.030), plateAt(-0.030, -0.018),
+  cyl(0.0585, 0.036, "z", [0, 0, 0], 20), cyl(0.0585, 0.036, "z", [P, 0, 0], 20)
+]);
+const outerChain = registerMesh(transmission,
+  new THREE.InstancedMesh(outerLinkGeo, mat(0x94a3b8, 0.9, 0.32), PINS / 2),
+  "Maglie esterne della catena", "Le maglie esterne si alternano a quelle interne e sono unite dai perni.",
+  { explodeVec: [0, 0, 1.2] });
+const innerChain = registerMesh(transmission,
+  new THREE.InstancedMesh(innerLinkGeo, mat(0x76869e, 0.88, 0.34), PINS / 2),
+  "Maglie interne della catena", "Le maglie interne portano i rulli, che si inseriscono tra i denti.",
+  { explodeVec: [0, 0, -1.2] });
+outerChain.frustumCulled = false;
+innerChain.frustumCulled = false;
+
+const dummy = new THREE.Object3D();
+const pA = new THREE.Vector2(), pB = new THREE.Vector2();
+function updateTransmission(s0) {
+  for (let j = 0; j < PINS; j++) {
+    belt.pointAt(s0 + j * P, pA);
+    belt.pointAt(s0 + (j + 1) * P, pB);
+    const dx = pB.x - pA.x, dy = pB.y - pA.y;
+    dummy.position.set(pA.x, pA.y, 0);
+    dummy.rotation.set(0, 0, Math.atan2(dy, dx));
+    dummy.scale.set(Math.hypot(dx, dy) / P, 1, 1);
+    dummy.updateMatrix();
+    (j % 2 === 0 ? outerChain : innerChain).setMatrixAt(j >> 1, dummy.matrix);
+  }
+  outerChain.instanceMatrix.needsUpdate = true;
+  innerChain.instanceMatrix.needsUpdate = true;
+
+  // Fase dei denti: i perni cadono sempre nei vani dei denti
+  const a1 = TAU / FRONT_T, a2 = TAU / CASSETTE[WORK];
+  const th1 = belt.arcInfo[0].aArr + (s0 - belt.arcInfo[0].start) / R1 - 0.5 * a1;
+  const th2 = belt.arcInfo[1].aArr + (s0 - belt.arcInfo[1].start) / R2 - 0.5 * a2;
+  frontRing.rotation.z = th1;
+  frontBolts.rotation.z = th1;
+  crankArm.rotation.z = th1 + CRANK0;
+  for (const m of cogMeshes) m.rotation.z = th2;
+  const a3 = TAU / 12, ai = belt.arcInfo;
+  rdPulleyG.rotation.z = ai[2].aArr - (s0 - ai[2].start) / RP - 0.5 * a3;   // gira in senso opposto
+  rdPulleyT.rotation.z = ai[3].aArr + (s0 - ai[3].start) / RP - 0.5 * a3;
+}
+updateTransmission(0);
+
+// =====================================================================
+//  3. FORCELLA AMMORTIZZATA
+// =====================================================================
+const fork = newAssembly();
+const FORK_TRAVEL = 0.45;
+const forkSlide = [0, FORK_TRAVEL, 0];
+const forkDark = mat(0x1f2937, 0.7, 0.35);
+const forkBlue = mat(0x2479e8, 0.5, 0.3);
+const chrome = mat(0xdce3ec, 1.0, 0.08);
+
+part(fork, cyl(0.145, 1.3, "y", [0, 2.7, 0], 48), mat(0xa9b3c1, 0.9, 0.25), "Canotto di sterzo",
+  "Il tubo che entra nel telaio e permette alla forcella di ruotare con il manubrio.",
+  { explodeVec: [0, 1.4, 0] });
+part(fork, merge([cyl(0.2, 0.07, "y", [0, 3.385, 0], 40), cyl(0.07, 0.05, "y", [0, 3.445, 0], 6)]), goldMat,
+  "Tappo del canotto", "Regola la precarica della serie sterzo.", { explodeVec: [0, 2.2, 0] });
+part(fork, merge([cyl(0.205, 0.11, "y", [0, 2.31, 0], 40), cyl(0.205, 0.11, "y", [0, 2.47, 0], 40)]), goldMat,
+  "Spessori del canotto", "Anelli che regolano l'altezza del manubrio.", { explodeVec: [0, 1.8, 0] });
+
+part(fork, merge([
+  rbox(1.0, 0.34, 0.5, 0.1, [0, 1.95, 0]),
+  cyl(0.225, 0.36, "y", [-0.52, 1.95, 0], 40), cyl(0.225, 0.36, "y", [0.52, 1.95, 0], 40),
+  cyl(0.245, 0.1, "y", [0, 2.17, 0], 48)
+]), forkDark, "Testa della forcella",
+  "La testa massiccia unisce il canotto agli steli e sopporta le sollecitazioni della ruota.",
+  { explodeVec: [0, 0.9, 0] });
+part(fork, merge([cyl(0.105, 0.12, "y", [-0.52, 2.19, 0], 32), cyl(0.105, 0.12, "y", [0.52, 2.19, 0], 32)]), goldMat,
+  "Cappucci di regolazione", "Sulle teste degli steli si regolano aria e compressione.", { explodeVec: [0, 1.6, 0] });
+
+for (const x of [-0.52, 0.52]) {
+  const sgn = Math.sign(x);
+  part(fork, cyl(0.115, 2.0, "y", [x, 1.03, 0], 40), chrome, "Stelo della forcella",
+    "Tubo cromato lucido che scorre dentro il fodero: qui lavora la sospensione.",
+    { explodeVec: [sgn * 0.9, 0.3, 0] });
+  part(fork, cyl(0.215, 0.12, "y", [x, 0.86, 0], 40), mat(0x0f1115, 0.05, 0.85), "Parapolvere",
+    "Guarnizione che pulisce lo stelo e protegge l'interno dallo sporco.",
+    { slide: forkSlide, explodeVec: [sgn * 0.8, 0.9, 0] });
+  part(fork, merge([
+    cyl(0.2, 1.7, "y", [x, -0.05, 0], 40, 0.18),
+    rbox(0.4, 0.44, 0.38, 0.12, [x, -1.0, 0]),
+    cyl(0.14, 0.06, "x", [x - sgn * 0.23, -1.0, 0], 32)
+  ]), forkBlue, "Fodero della forcella",
+    "Contiene olio e molla/aria della sospensione. Cliccalo per comprimere la forcella!",
+    { slide: forkSlide, toggle: true, explodeVec: [sgn * 1.2, -0.3, 0] });
+}
+
+// Archetto di rinforzo sagomato
+{
+  const s = new THREE.Shape();
+  s.moveTo(-0.52, 0.28); s.lineTo(-0.52, 0.66); s.lineTo(0.52, 0.66); s.lineTo(0.52, 0.28);
+  s.lineTo(0.30, 0.28); s.quadraticCurveTo(0, 0.54, -0.30, 0.28); s.closePath();
+  part(fork, extrude(s, 0.2, 0.02, 16), forkBlue, "Archetto della forcella",
+    "Irrigidisce la struttura unendo i due foderi e li costringe a muoversi insieme.",
+    { slide: forkSlide, toggle: true, explodeVec: [0, 0.2, 0.9] });
+}
+
+// Asse passante con leva a sgancio rapido
+part(fork, merge([
+  cyl(0.085, 1.56, "x", [0, -1.0, 0], 32), cyl(0.125, 0.06, "x", [-0.77, -1.0, 0], 32),
+  cyl(0.12, 0.1, "x", [0.8, -1.0, 0], 32), rbox(0.08, 0.5, 0.08, 0.03, [0.84, -1.25, 0])
+]), chrome, "Asse ruota passante",
+  "Asse inferiore che blocca il mozzo della ruota ai due foderi.",
+  { slide: forkSlide, toggle: true, explodeVec: [0, -1.1, 0] });
+
+// =====================================================================
+//  4. MOTORE CENTRALE E BATTERIA E-BIKE (1 unità = 100 mm)
+// =====================================================================
+const ebike = newAssembly();
+const EBIKE_FRONT_T = 38;
+const PHI = rad(55);
+const dT = [Math.cos(PHI), Math.sin(PHI)], nT = [-Math.sin(PHI), Math.cos(PHI)];
+const A0 = [0.55, 0.30];
+const tp = (t, off = 0) => [A0[0] + dT[0] * t + nT[0] * off, A0[1] + dT[1] * t + nT[1] * off];
+// Posiziona un box con l'asse x lungo il tubo obliquo (t) e l'asse y verso l'alto (off)
+function tubeBox(w, h, d, r, t, off, z = 0) {
+  const g = rbox(w, h, d, r, [0, 0, 0]);
+  g.rotateZ(PHI);
+  const p = tp(t, off);
+  g.translate(p[0], p[1], z);
+  return g;
+}
+
+// Carter sagomato del motore (profilo organico), integrato col movimento centrale
+const housing = new THREE.Shape();
+housing.moveTo(-0.45, -0.62);
+housing.quadraticCurveTo(0.35, -0.70, 0.80, -0.40);
+housing.quadraticCurveTo(1.10, -0.15, 1.05, 0.25);
+housing.quadraticCurveTo(0.95, 0.62, 0.45, 0.72);
+housing.quadraticCurveTo(-0.10, 0.78, -0.55, 0.62);
+housing.quadraticCurveTo(-0.85, 0.40, -0.82, 0.0);
+housing.quadraticCurveTo(-0.80, -0.42, -0.45, -0.62);
+housing.closePath();
+part(ebike, extrude(housing, 0.62, 0.06, 28), mat(0x2b333f, 0.55, 0.45), "Carter del motore",
+  "Il guscio in lega che racchiude motore elettrico, riduttore e sensori di coppia.",
+  { explodeVec: [0, 0, -0.7] });
+const coverShape = new THREE.Shape(housing.getPoints(24).map(p => p.clone().multiplyScalar(0.9)));
+part(ebike, extrude(coverShape, 0.05, 0.02, 4), mat(0x4b5563, 0.6, 0.4), "Coperchio del motore",
+  "Il coperchio laterale permette l'accesso agli ingranaggi interni.",
+  { pos: [0, 0, 0.415], explodeVec: [0, 0, 0.3] });
+part(ebike, cyl(0.32, 0.07, "z", [0, 0, 0.495], 48), mat(0xbfc8d4, 0.85, 0.3), "Anello di tenuta dell'asse",
+  "Anello che sigilla il punto in cui l'asse esce dal motore.", { explodeVec: [0, 0, 0.75] });
+part(ebike, merge([[0.78, 0.30], [0.55, -0.30], [-0.45, 0.38], [0.05, 0.56]].map(([x, y]) => cyl(0.045, 0.04, "z", [x, y, 0.48], 6))),
+  mat(0x171d27, 0.75, 0.3), "Viti del carter", "Chiudono il coperchio sul carter.", { explodeVec: [0, 0, 0.55] });
+
+part(ebike, cogGeometry(EBIKE_FRONT_T, 0.127, 0.02, { bore: 0.14, holes: { count: 5, rin: 0.3, rout: 0.58, gap: 0.3 } }),
+  mat(0xb9c3ce, 0.94, 0.22), `Corona anteriore ${EBIKE_FRONT_T}T`,
+  "Corona della guarnitura, collegata all'asse del motore.", { pos: [0, 0, 0.6], explodeVec: [0, 0, 1.1] });
+part(ebike, crankGeometry(1.7, 0.2, 0.1, 0.06, 0.012, 1), mat(0x9aa4b2, 0.9, 0.3), "Pedivella destra",
+  "Collega il pedale all'asse del movimento centrale.", { pos: [0, 0, 0.72], rot: [0, 0, -0.9], explodeVec: [0, 0, 1.7] });
+part(ebike, crankGeometry(1.7, 0.2, 0.1, 0.06, 0.012, -1), mat(0x9aa4b2, 0.9, 0.3), "Pedivella sinistra",
+  "Spinge l'asse dal lato opposto, sfasata di 180°.", { pos: [0, 0, -0.72], rot: [0, 0, -0.9 + Math.PI], explodeVec: [0, 0, -1.5] });
+part(ebike, merge([cyl(0.12, 1.5, "z", [0, 0, 0.03], 40), cyl(0.16, 0.05, "z", [0, 0, 0.8], 40)]),
+  mat(0x6b7482, 0.9, 0.3), "Asse del movimento centrale",
+  "Albero passante su cui si innestano le pedivelle e la corona.", { explodeVec: [0, -1.0, 0] });
+
+// Tubo obliquo del telaio
+{
+  const g = cyl(0.30, 4.6, "y", [0, 0, 0], 48);
+  g.rotateZ(PHI - Math.PI / 2);
+  const c = tp(2.2);
+  g.translate(c[0], c[1], 0);
+  part(ebike, g, mat(0x3a4250, 0.8, 0.4), "Tubo obliquo del telaio",
+    "Il tubo che collega il movimento centrale alla scatola sterzo e sostiene la batteria.",
+    { explodeVec: [0, 0, 0] });
+}
+
+// Slitta di fissaggio con guide laterali
+part(ebike, merge([
+  tubeBox(3.5, 0.07, 0.46, 0.02, 2.5, 0.335),
+  tubeBox(3.5, 0.10, 0.05, 0.015, 2.5, 0.35, 0.23),
+  tubeBox(3.5, 0.10, 0.05, 0.015, 2.5, 0.35, -0.23)
+]), mat(0xaab3c0, 0.9, 0.3), "Slitta di fissaggio",
+  "Guida a binario sul tubo obliquo: la batteria vi si inserisce e si blocca.",
+  { explodeVec: [nT[0] * 0.7, nT[1] * 0.7, 0] });
+
+// Batteria arrotondata
+part(ebike, tubeBox(3.4, 0.75, 0.80, 0.2, 2.5, 0.745), mat(0x2557c4, 0.15, 0.35), "Batteria",
+  "Pacco di celle agli ioni di litio in involucro arrotondato, montato sul tubo obliquo.",
+  { explodeVec: [nT[0] * 1.5, nT[1] * 1.5, 0] });
+part(ebike, tubeBox(0.9, 0.03, 0.2, 0.01, 2.9, 1.12), mat(0x0b0f14, 0.3, 0.25), "Indicatore di carica",
+  "Pannello che mostra il livello di carica.", { explodeVec: [nT[0] * 1.9, nT[1] * 1.9, 0] });
+part(ebike, merge(Array.from({ length: 5 }, (_, i) => tubeBox(0.07, 0.036, 0.07, 0.01, 2.6 + i * 0.15, 1.14))),
+  mat(0x16a34a, 0.1, 0.4, { emissive: 0x22c55e, emissiveIntensity: 0.9 }), "LED di carica",
+  "Cinque LED indicano il livello di carica residua.", { explodeVec: [nT[0] * 2.1, nT[1] * 2.1, 0] });
+{
+  const p = tp(3.9, 0.745);
+  part(ebike, cyl(0.075, 0.04, "z", [p[0], p[1], 0.42], 32), goldMat, "Serratura della batteria",
+    "Serratura a chiave che fissa la batteria alla slitta.", { explodeVec: [nT[0] * 1.5, nT[1] * 1.5, 1.0] });
+}
+part(ebike, tubeBox(0.2, 0.4, 0.46, 0.04, 0.72, 0.745), mat(0x30343b, 0.4, 0.5), "Connettore della batteria",
+  "Presa di potenza che collega la batteria al motore.", { explodeVec: [-dT[0] * 0.8, -dT[1] * 0.8, 0] });
+
+// Cablaggi elettrici
+part(ebike, new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+  V3(0.20, 0.74, 0.0), V3(0.16, 0.92, 0.10), V3(0.24, 1.08, 0.14), V3(0.296, 1.235, 0.05)
+], false, "centripetal"), 40, 0.05, 12, false), mat(0x111418, 0.2, 0.6), "Cavo di alimentazione",
+  "Porta la corrente dalla batteria al motore.", { explodeVec: [-0.6, -0.2, 0.7] });
+part(ebike, merge([
+  new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    V3(0.90, 0.30, 0.47), V3(1.02, 0.55, 0.38), V3(...tp(0.9, -0.15), 0.31), V3(...tp(1.8, -0.15), 0.31),
+    V3(...tp(2.7, -0.15), 0.31), V3(...tp(3.6, -0.15), 0.31), V3(...tp(4.3, -0.15), 0.31)
+  ], false, "centripetal"), 120, 0.028, 10, false),
+  rbox(0.13, 0.13, 0.13, 0.03, [tp(4.3, -0.15)[0], tp(4.3, -0.15)[1], 0.31])
+]), mat(0x6b7280, 0.2, 0.6), "Cavo dati del display",
+  "Collega il motore al display sul manubrio, seguendo il tubo obliquo.", { explodeVec: [0, 0, 0.9] });
+  // =====================================================================
+//  VISTE
+// =====================================================================
+const systemViews = new Map([
+  ["brake", { group: brake, title: "Freno a disco idraulico",
+    description: "Disco con spider, pinza a due semicorpi con pistoni e pastiglie, tubo idraulico con banjo, pompa e leva sul proprio perno.",
+    dir: [2.4, 1.3, 6], target: [0.97, 0.35, 0.1], hw: 2.9, hh: 2.3, explode: 1.1, showGrid: true }],
+  ["transmission", { group: transmission, title: "Trasmissione",
+    description: `Corona anteriore da ${FRONT_T} denti, cassetta a ${CASSETTE.length} velocità con pignone in presa da ${CASSETTE[WORK]} denti, cambio posteriore con gabbia e forcellino, e catena chiusa in movimento.`,
+    dir: [0.45, 0.2, 1], target: [-CHAIN_D / 2, -0.5, 0], hw: CHAIN_D / 2 + 1.9, hh: 2.3, explode: 1.4, showGrid: false }],
+  ["fork", { group: fork, title: "Forcella ammortizzata",
+    description: "Canotto con tappo e spessori, testa massiccia con cappucci di regolazione, steli cromati, foderi, parapolvere, archetto e asse passante. Clicca un fodero per comprimere la sospensione.",
+    dir: [2.5, 1.2, 6], target: [0, 0.95, 0], hw: 1.3, hh: 2.9, explode: 1.0, showGrid: true }],
+  ["ebike", { group: ebike, title: "Motore e batteria e-bike",
+    description: "Motore centrale con carter sagomato, guarnitura, batteria arrotondata su slitta e cablaggi lungo il tubo obliquo.",
+    dir: [1.6, 0.6, 3.4], target: [1.0, 1.45, 0], hw: 2.5, hh: 3.0, explode: 1.4, showGrid: false }]
+]);
+systemViews.forEach(v => { v.val = 0; v.targetVal = 0; });
+
+const grid = new THREE.GridHelper(12, 24, 0x34445f, 0x202d43);
+grid.position.y = -2.1;
+scene.add(grid);
+
+function fitDistance(hw, hh) {
+  const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  return 1.12 * Math.max(hh / t, hw / (t * camera.aspect));
+}
+
+// Direzione radiale dal centro del gruppo; le parti senza direzione propria e concentriche si separano in z
+function computeExplodeDirs() {
+  const gc = new THREE.Box3().setFromObject(activeGroup).getCenter(V3());
+  const centers = [];
+  let degenerate = 0;
+  activeParts.forEach(p => {
+    const c = new THREE.Box3().setFromObject(p).getCenter(V3());
+    const d = c.clone().sub(gc);
+    const clash = centers.some(o => o.distanceTo(c) < 0.15);
+    centers.push(c);
+    if (p.userData.explodeVec) return;
+    if (d.length() < 0.15 || clash) p.userData.explodeDir.set(0, 0, degenerate++ % 2 === 0 ? 1 : -1);
+    else p.userData.explodeDir.copy(d.normalize());
+  });
+}
+
+explodedButton.addEventListener("click", () => {
+  exploded = !exploded;
+  explodedButton.textContent = exploded ? "Ricomponi" : "Mostra componenti separati";
+});
+
+function setActiveView(key) {
+  exploded = false;
+  explodeAmt = 0;
+  explodedButton.textContent = "Mostra componenti separati";
+
+  systemViews.forEach(v => (v.group.visible = false));
+  activeViewKey = key;
+  const view = systemViews.get(key);
+  view.val = 0;
+  view.targetVal = 0;
+  view.group.visible = true;
+  activeGroup = view.group;
+  activeParts = activeGroup.children.filter(p => p.isMesh);
+  selectedPart = null;
+  activeParts.forEach(p => {
+    p.position.copy(p.userData.base);
+    if (p.userData.rotZ) p.rotation.z = 0;
+  });
+  computeExplodeDirs();
+
+  systemTitle.textContent = view.title;
+  systemDescription.textContent = view.description;
+  grid.visible = view.showGrid;
+  const dist = fitDistance(view.hw, view.hh);
+  controls.target.set(...view.target);
+  camera.position.copy(controls.target).add(V3(...view.dir).normalize().multiplyScalar(dist));
+  componentInfo.style.display = "none";
+  if (quizActive) nextQuizQuestion();
+}
+systemSelect.addEventListener("change", e => setActiveView(e.currentTarget.value));
+
+// =====================================================================
+//  QUIZ
+// =====================================================================
+function updateQuizScore() {
+  quizScoreEl.textContent = `✅ Corrette: ${correctCount}`;
+  quizErrorsEl.textContent = `❌ Errori: ${wrongTotal}`;
+  quizSkippedEl.textContent = `⏭ Saltate: ${quizSkippedCount}`;
+}
+
+function nextQuizQuestion() {
+  clearTimeout(quizTimer);
+  if (quizIndex >= quizTargets.length) { finishQuiz(); return; }
+  currentQuizTarget = quizTargets[quizIndex];
+  wrongCount = 0;
+  hintUntil = 0;
+  quizQuestion.textContent = currentQuizTarget;
+  quizFeedback.textContent = "Ruota il modello se il componente non è visibile.";
+  quizProgressText.textContent = `Domanda ${quizIndex + 1} di ${quizTargets.length}`;
+  const progress = Math.round((quizIndex / quizTargets.length) * 100);
+  quizProgressBar.style.width = `${progress}%`;
+  quizProgressTrack.setAttribute("aria-valuemax", String(quizTargets.length));
+  quizProgressTrack.setAttribute("aria-valuenow", String(quizIndex));
+  updateQuizScore();
+}
+
+function startQuiz() {
+  clearTimeout(quizTimer);
+  quizTargets = [...new Set(activeParts.map(m => m.userData.nome).filter(Boolean))];
+  // Ordine casuale senza ripetizioni, con un limite per mantenere la sfida breve.
+  for (let i = quizTargets.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [quizTargets[i], quizTargets[j]] = [quizTargets[j], quizTargets[i]];
+  }
+  quizTargets = quizTargets.slice(0, 8);
+  if (!quizTargets.length) return;
+  quizActive = true;
+  quizIndex = 0;
+  correctCount = 0;
+  wrongTotal = 0;
+  quizSkippedCount = 0;
+  quizHeading.textContent = "Riconosci i componenti";
+  quizStatus.textContent = "IN CORSO";
+  quizStatus.style.color = "#67e8f9";
+  quizRoundEl.style.display = "block";
+  quizResultEl.style.display = "none";
+  quizPanel.hidden = false;
+  systemSelect.disabled = true;
+  explodedButton.disabled = true;
+  componentInfo.style.display = "none";
+  selectedPart = null;
+  nextQuizQuestion();
+  quizPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function finishQuiz() {
+  clearTimeout(quizTimer);
+  quizActive = false;
+  currentQuizTarget = null;
+  hintUntil = 0;
+  quizHeading.textContent = "Sfida completata!";
+  quizStatus.textContent = "COMPLETATA";
+  quizStatus.style.color = "#86efac";
+  quizProgressText.textContent = `${quizTargets.length} domande completate`;
+  quizProgressBar.style.width = "100%";
+  quizProgressTrack.setAttribute("aria-valuenow", String(quizTargets.length));
+  quizResultText.textContent = `${correctCount} su ${quizTargets.length} corrette`;
+  quizResultDetail.textContent = `${wrongTotal} errori · ${quizSkippedCount} componenti saltati. Puoi riprovare per migliorare il risultato.`;
+  quizRoundEl.style.display = "none";
+  quizResultEl.style.display = "block";
+  systemSelect.disabled = false;
+  explodedButton.disabled = false;
+}
+
+function closeQuiz() {
+  clearTimeout(quizTimer);
+  quizActive = false;
+  currentQuizTarget = null;
+  hintUntil = 0;
+  quizPanel.hidden = true;
+  systemSelect.disabled = false;
+  explodedButton.disabled = false;
+}
+
+document.getElementById("startQuizBtn").addEventListener("click", startQuiz);
+document.getElementById("skipQuizBtn").addEventListener("click", () => {
+  if (!quizActive) return;
+  quizSkippedCount++;
+  quizIndex++;
+  nextQuizQuestion();
+});
+document.getElementById("stopQuizBtn").addEventListener("click", closeQuiz);
+document.getElementById("replayQuizBtn").addEventListener("click", startQuiz);
+document.getElementById("closeQuizBtn").addEventListener("click", closeQuiz);
+
+function quizWrong(message) {
+  if (!quizActive) return;
+  wrongTotal++;
+  wrongCount++;
+  quizFeedback.textContent = message;
+  if (wrongCount >= 3) {
+    hintUntil = performance.now() + 4000;
+    quizFeedback.textContent += " Guarda il componente che lampeggia!";
+  }
+  updateQuizScore();
+}
+
+// =====================================================================
+//  INTERAZIONE (click distinto dal drag)
+// =====================================================================
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let downX = 0, downY = 0;
+
+renderer.domElement.addEventListener("pointerdown", e => { downX = e.clientX; downY = e.clientY; });
+renderer.domElement.addEventListener("click", event => {
+  if (Math.hypot(event.clientX - downX, event.clientY - downY) > 5) return;
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+
+  const hit = raycaster.intersectObjects(activeGroup.children, true)[0];
+
+  if (quizActive) {
+    if (!currentQuizTarget) return;
+    if (!hit) { quizWrong("❌ Hai cliccato nel vuoto, cerca il componente sul modello."); return; }
+    if (hit.object.userData.nome === currentQuizTarget) {
+      correctCount++;
+      hintUntil = 0;
+      currentQuizTarget = null;
+      quizIndex++;
+      updateQuizScore();
+      quizFeedback.textContent = "🎉 Ottimo! Risposta esatta!";
+      clearTimeout(quizTimer);
+      quizTimer = setTimeout(nextQuizQuestion, 900);
+    } else {
+      quizWrong("❌ Riprova, non è questo il componente!");
+    }
+    return;
+  }
+
+  if (!hit) return;
+  const obj = hit.object;
+  if (obj.userData.toggle) {
+    const view = systemViews.get(activeViewKey);
+    view.targetVal = view.targetVal > 0.5 ? 0 : 1;
+  }
+  if (obj.userData.nome) {
+    selectedPart = obj;
+    infoTitle.textContent = obj.userData.nome;
+    infoDescription.textContent = obj.userData.descrizione;
+    componentInfo.style.display = "block";
+  }
+});
+
+// Chiudendo il popup si spegne anche l'evidenziazione
+const closeInfo = () => {
+  componentInfo.style.display = "none";
+  selectedPart = null;
+};
+document.getElementById("closeInfo").addEventListener("click", closeInfo);
+window.addEventListener("keydown", e => { if (e.key === "Escape") closeInfo(); });
+
+// =====================================================================
+//  ANIMAZIONE
+// =====================================================================
+const offset = new THREE.Vector3();
+// Verso di marcia: negativo = il ramo superiore avanza verso la corona (pedalata in avanti, guarnitura in senso orario)
+const CHAIN_SPEED = -0.9;
+let chainS = 0, lastNow = 0;
+
+function applyPose(now) {
+  const view = systemViews.get(activeViewKey);
+  const val = view.val;
+  const hinting = quizActive && currentQuizTarget && now < hintUntil;
+  const pulse = 0.5 + 0.5 * Math.sin(now * 0.008);
+
+  activeParts.forEach(p => {
+    const u = p.userData;
+    if (u.explodeVec) offset.copy(u.explodeVec).multiplyScalar(explodeAmt);
+    else offset.copy(u.explodeDir).multiplyScalar(view.explode * explodeAmt);
+    p.position.copy(u.base).add(offset);
+    if (u.slide) p.position.addScaledVector(u.slide, val);
+    if (u.rotZ) p.rotation.z = u.rotZ * val;
+
+    // bersaglio del quiz: bagliore lampeggiante dopo 3 errori;
+    // componente selezionato (popup aperto): bagliore ciano costante con lieve pulsazione
+    const m = p.material;
+    if (hinting && u.nome === currentQuizTarget) {
+      m.emissive.set(0x22d3ee);
+      m.emissiveIntensity = 0.65 + 0.95 * pulse;
+    } else if (selectedPart === p && !quizActive) {
+      m.emissive.set(0x22d3ee);
+      m.emissiveIntensity = 1.1 + 0.35 * pulse;
+    } else {
+      m.emissive.copy(u.baseEm.color);
+      m.emissiveIntensity = u.baseEm.intensity;
+    }
+  });
+}
+
+function animate(now = 0) {
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.05, (now - lastNow) / 1000);
+  lastNow = now;
+
+  explodeAmt += ((exploded ? 1 : 0) - explodeAmt) * 0.12;
+  const view = systemViews.get(activeViewKey);
+  view.val += (view.targetVal - view.val) * 0.12;
+
+  if (activeViewKey === "transmission") {
+    chainS += dt * CHAIN_SPEED;
+    updateTransmission(chainS);
+  }
+
+  applyPose(now);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+// =====================================================================
+//  DEEP LINK: ?sistema=...&parte=...  (anche #sistema=...&parte=...)
+//  Ricerca: nome esatto > alias (sinonimi) > punteggio di contenimento,
+//  con spareggio a favore del nome più specifico.
+// =====================================================================
+const norm = s => String(s).toLowerCase().normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+const STOP = new Set(["di", "del", "della", "dello", "dei", "delle", "il", "la", "lo", "le", "i", "gli", "e", "a", "da", "in", "con", "per", "ebike", "bici"]);
+const tokens = s => norm(s).split(" ").filter(t => t && !STOP.has(t));
+// Stesso token, oppure stessa radice (pastiglia/pastiglie)
+const stem = parola => parola.length > 3 && /[aeiou]$/.test(parola)
+  ? parola.slice(0, -1)
+  : parola;
+const sameTok = (a, b) => a === b || stem(a) === stem(b);
+
+// Sinonimi -> nome ESATTO della mesh (l'ordine conta: i più specifici prima)
+const ALIASES = [
+  [/^(leva|leve|manetta)$/, "leva del freno"],
+  [/^(pompa|cilindro maestro)$/, "pompa del freno"],
+  [/^(serbatoio|vaschetta)$/, "serbatoio del liquido freni"],
+  [/^(pastiglia|pastiglie|pattino|pattini)$/, "pastiglia del freno esterna"],
+  [/^(pedale|pedali|pedivelle|guarnitura)$/, "pedivella"],
+  [/^(freehub|ruota libera|cricchetti)$/, "corpo ruota libera"],
+  [/^(cassetta|cassetta pignoni|pacco pignoni|pignoni)$/, `Pignone ${CASSETTE[WORK]}T (in presa)`],
+  [/^(catena|maglie)$/, "maglie esterne della catena"],
+  [/^(motore|carter)$/, "carter del motore"],
+  [/^(ammortizzatore|sospensione|molla)$/, "fodero della forcella"],
+  [/\b(serratura|chiave|lock|blocco batteria)\b/, "serratura della batteria"],
+  [/\b(contatti|contatto|connettori?|presa|spinotto|terminali?)\b/, "connettore della batteria"],
+  [/\b(binario|binari|guida|guide|rail|slitta|slitte|supporto batteria)\b/, "slitta di fissaggio"],
+  [/\b(led|spie|spia)\b/, "led di carica"],
+  [/\b(cavo dati|cavo display)\b/, "cavo dati del display"],
+  [/\b(display|indicatore di carica|livello di carica)\b/, "indicatore di carica"],
+  [/\b(cavo|cablaggio|cablaggi|cavi)\b/, "cavo di alimentazione"],
+  [/\b(deragliatore posteriore|deragliatore|rear derailleur|derailleur)\b/, "cambio posteriore"],
+  [/\b(hanger|dropout|forcellino cambio|forcellino del cambio)\b/, "forcellino"],
+  [/\b(cage|gabbia del cambio)\b/, "gabbia del cambio"],
+  [/\b(pulegge|puleggie|rotelle|rotella|jockey wheels?)\b/, "puleggia"],
+  [/\b(pinza|caliper)\b/, "semicorpo esterno della pinza"],
+  [/\b(disco freno|rotore|disco)\b/, "pista frenante"]
+];
+// Nomi esatti delle parti: hanno sempre la precedenza sugli alias
+const EXACT = new Set([...systemViews.values()].flatMap(v =>
+  v.group.children.filter(m => m.isMesh && m.userData.nome).map(m => norm(m.userData.nome))));
+function aliasQuery(q) {
+  const n = norm(q);
+  if (EXACT.has(n)) return n;
+  for (const [re, target] of ALIASES) if (re.test(n)) return target;
+  return n;
+}
+
+function scoreName(name, query) {
+  const n = norm(name), q = norm(query);
+  if (!q) return 0;
+  if (n === q) return 100;
+  const nt = tokens(name), qt = tokens(query);
+  let s = 0;
+  if (nt.length && qt.length) {
+    const hit = qt.filter(t => nt.some(x => sameTok(t, x))).length;
+    if (hit) s = (hit / qt.length) * 50 + (hit / nt.length) * 10;
+  }
+  // Contenimento: pesa in base a quanto il nome copre la query,
+  // così un nome generico ("Batteria") non batte più una parte specifica
+  if (n.includes(q)) s = Math.max(s, 40 + 25 * (q.length / n.length));
+  else if (q.includes(n)) s = Math.max(s, 30 + 20 * (n.length / q.length));
+  return s;
+}
+
+// Cerca in tutti i sistemi, con un piccolo vantaggio a quello indicato
+function findPart(query, preferredKey) {
+  const queryNorm = norm(query);
+
+  // Il modello divide la pinza in più mesh: il tag generico deve selezionare
+  // il semicorpo esterno, non il ponte né un componente casuale.
+  if (
+    preferredKey === "brake" &&
+    /^(pinza|pinza freno|caliper|brake caliper)$/.test(queryNorm)
+  ) {
+    const view = systemViews.get("brake");
+    const mesh = view?.group.children.find(m =>
+      m.isMesh && norm(m.userData.nome || "") === norm("Semicorpo esterno della pinza")
+    );
+    return mesh ? { key: "brake", mesh, score: 100 } : null;
+  }
+
+  const cerca = (termine, chiavi) => {
+    let best = null;
+    for (const key of chiavi) {
+      const view = systemViews.get(key);
+      if (!view) continue;
+      for (const m of view.group.children) {
+        if (!m.isMesh || !m.userData.nome) continue;
+        const s = scoreName(m.userData.nome, termine);
+        if (s <= 0) continue;
+        const longer = best && s === best.score && m.userData.nome.length > best.mesh.userData.nome.length;
+        if (!best || s > best.score || longer) best = { key, mesh: m, score: s };
+      }
+    }
+    return best;
+  };
+
+  if (
+    preferredKey === "transmission" &&
+    /^(cassetta|cassetta pignoni|pacco pignoni|pignoni)$/.test(queryNorm)
+  ) {
+    // Il tag generico punta al pignone attualmente in presa, non alla ghiera.
+    return cerca(`Pignone ${CASSETTE[WORK]}T (in presa)`, [preferredKey]);
+  }
+
+  if (preferredKey) {
+    // Prima rispetta il sistema richiesto con il nome originale; poi prova
+    // gli alias solo all'interno di quello stesso sistema.
+    const diretto = cerca(query, [preferredKey]);
+    if (diretto) return diretto;
+    const alias = aliasQuery(query);
+    if (alias !== norm(query)) return cerca(alias, [preferredKey]);
+    return null;
+  }
+
+  return cerca(aliasQuery(query), [...systemViews.keys()]);
+}
+
+function focusPart(key, mesh) {
+  systemSelect.value = key;
+  setActiveView(key);               // resetta selezione e popup...
+  if (!mesh || quizActive) return;  // durante il quiz il popup svelerebbe la risposta
+  selectedPart = mesh;              // ...quindi li imposto dopo
+  infoTitle.textContent = mesh.userData.nome;
+  infoDescription.textContent = mesh.userData.descrizione;
+  componentInfo.style.display = "block";
+}
+
+function readDeepLink() {
+  const p = new URLSearchParams(location.search);
+  const h = new URLSearchParams(location.hash.replace(/^#/, ""));
+  const get = (...names) => { for (const n of names) { const v = p.get(n) ?? h.get(n); if (v) return v; } return null; };
+  const sistema = norm(get("sistema", "system", "sys") || "").replace(/ /g, "");
+  const SYS_ALIAS = { freno: "brake", brake: "brake", trasmissione: "transmission", transmission: "transmission",
+    forcella: "fork", fork: "fork", motore: "ebike", batteria: "ebike", ebike: "ebike" };
+  const preferred = systemViews.has(sistema) ? sistema : (SYS_ALIAS[sistema] || null);
+  const parte = get("parte", "part", "componente", "component", "nome");
+  const found = parte ? findPart(parte, preferred) : null;
+  if (found) focusPart(found.key, found.mesh);
+  else focusPart(preferred || "brake", null);   // nessuna parte trovata: apre il sistema senza selezionare nulla
+}
+readDeepLink();
+window.addEventListener("hashchange", readDeepLink);
+animate();
+
+function resize() {
+  const w = container.clientWidth, h = container.clientHeight;
+  if (!w || !h) return;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}
+new ResizeObserver(resize).observe(container);
+</script>
+  <footer style="padding:18px;text-align:center;color:#8292a8;font:13px system-ui"><a href="privacy.html" style="color:#20c7dc;margin:0 10px">Privacy</a><a href="termini.html" style="color:#20c7dc;margin:0 10px">Termini di servizio</a></footer>
+</body>
+</html>
+

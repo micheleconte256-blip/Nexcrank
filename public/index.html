@@ -1,0 +1,2047 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080d18">
+  <title>Nexcrank AI</title>
+
+  <!-- Parser Markdown + sanitizzazione HTML -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    :root {
+      --background: #080d18;
+      --surface: #101827;
+      --surface-light: #172438;
+      --border: #263449;
+      --text: #edf4ff;
+      --muted: #91a1b7;
+      --accent: #22d3ee;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--background);
+      color: var(--text);
+      font-family: Arial, sans-serif;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      height: 68px;
+      padding: 0 6%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #1c293b;
+      background: #0b1220;
+    }
+
+    .logo {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 1px;
+    }
+
+    .logo span {
+      color: var(--accent);
+    }
+
+    .header-status {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 2px;
+    }
+
+    .history-toggle {
+      display: none;
+      width: 38px;
+      height: 38px;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .guide-link {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 14px;
+      border: 1px solid #67e8f9;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #22d3ee, #16b8d0);
+      color: #071521;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 800;
+      box-shadow: 0 5px 18px #22d3ee22;
+      transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
+    }
+    .guide-link:hover { transform: translateY(-1px); filter: brightness(1.08); box-shadow: 0 7px 22px #22d3ee38; }
+    .guide-link:active { transform: translateY(0); }
+    .guide-link:focus-visible { outline: 3px solid #a5f3fc; outline-offset: 3px; }
+    .guide-link svg { width: 18px; height: 18px; flex: 0 0 18px; }
+
+    .app-shell { min-height: calc(100vh - 118px); display: flex; }
+    .sidebar {
+      position: sticky;
+      top: 68px;
+      display: flex;
+      flex-direction: column;
+      width: 270px;
+      flex: 0 0 270px;
+      height: calc(100vh - 68px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: 20px 14px;
+      border-right: 1px solid #1c293b;
+      background: #0b1220;
+    }
+    .new-chat {
+      width: 100%;
+      min-height: 46px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      border: 1px solid #2589a3;
+      border-radius: 12px;
+      background: #102234;
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      text-align: left;
+      cursor: pointer;
+      transition: background .2s, border-color .2s;
+    }
+    .new-chat:hover { background: #153148; border-color: var(--accent); }
+    .new-chat span { color: var(--accent); font-size: 21px; line-height: 1; }
+    .history-heading { margin: 25px 8px 10px; color: #71849c; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+    .history-list { display: flex; flex: 1; flex-direction: column; gap: 5px; min-height: 0; overflow-y: auto; }
+    .history-row { display: flex; align-items: center; gap: 3px; min-width: 0; border-radius: 10px; }
+    .history-row:hover { background: #121e30; }
+    .history-item {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: transparent;
+      color: #cad5e4;
+      font: inherit;
+      font-size: 13px;
+      text-align: left;
+      cursor: pointer;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .history-item:hover { background: #121e30; }
+    .history-item.active { border-color: #263d52; background: #142438; color: white; }
+    .history-row .history-item { flex: 1; min-width: 0; }
+    .history-delete { width: 36px; height: 36px; flex: 0 0 36px; display: grid; place-items: center; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #8091a8; cursor: pointer; opacity: 0; transition: .15s; }
+    .history-row:hover .history-delete, .history-delete:focus-visible { opacity: 1; }
+    .history-delete:hover { border-color: #7b3444; background: #351b27; color: #fda4af; }
+    .history-delete svg { width: 16px; height: 16px; }
+    .history-empty { padding: 4px 8px; color: #73849a; font-size: 12px; line-height: 1.55; }
+    .sidebar-note { margin: 18px 8px 0; color: #687a91; font-size: 11px; line-height: 1.5; }
+    .account-area { flex: 0 0 auto; margin-top: 14px; }
+    .account-login, .account-info { width: 100%; min-height: 58px; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid #26364d; border-radius: 12px; background: linear-gradient(135deg, #101d2e, #0d1725); color: #e5eef9; }
+    .account-login { text-decoration: none; transition: border-color .18s, background .18s, transform .18s; }
+    .account-login:hover { border-color: #287085; background: linear-gradient(135deg, #132638, #10202e); color: white; transform: translateY(-1px); }
+    .account-login[hidden], .account-info[hidden] { display: none !important; }
+    .account-avatar { width: 36px; height: 36px; flex: 0 0 36px; display: grid; place-items: center; border: 1px solid #245064; border-radius: 10px; background: #123447; color: #25c8dc; }
+    .account-avatar svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .account-copy, .account-details { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+    .account-title { color: #edf5ff; font-size: 12px; font-weight: 700; line-height: 1.25; }
+    .account-subtitle, .account-kicker { color: #8496ad; font-size: 11px; line-height: 1.25; }
+    .account-email { overflow: hidden; color: #d6e1ef; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .account-chevron { width: 15px; height: 15px; flex: 0 0 15px; color: #6f829b; }
+    .account-logout { flex: 0 0 auto; min-height: 31px; padding: 0 9px; border: 1px solid #31425a; border-radius: 8px; background: #0b1422; color: #9fb1c8; font: inherit; font-size: 11px; cursor: pointer; transition: .18s; }
+    .account-logout:hover { border-color: #7b3444; background: #351b27; color: #fda4af; }
+    .sidebar-settings { flex: 0 0 auto; margin-top: 14px; padding-top: 12px; border-top: 1px solid #1e2c40; background: #0b1220; }
+    .settings-toggle { width: 100%; min-height: 40px; display: flex; align-items: center; gap: 9px; padding: 0 9px; border: 0; border-radius: 9px; background: transparent; color: #b7c4d6; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+    .settings-toggle:hover { background: #121e30; color: white; }
+    .settings-panel { margin-top: 8px; padding: 12px; border: 1px solid #263449; border-radius: 11px; background: #101827; }
+    .settings-panel[hidden] { display: none; }
+    .settings-panel label { display: block; margin-bottom: 8px; color: #e4edf9; font-size: 12px; font-weight: 700; line-height: 1.4; }
+    .settings-panel select { width: 100%; min-height: 38px; padding: 7px 9px; border: 1px solid #304057; border-radius: 8px; background: #0b1422; color: white; font: inherit; font-size: 13px; }
+    .settings-panel p { margin: 8px 0 0; color: #8495ac; font-size: 11px; line-height: 1.45; }
+    .settings-section-title { display: block; margin-top: 16px; color: #e4edf9; font-size: 12px; font-weight: 700; }
+    .settings-actions { display: grid; gap: 7px; margin-top: 8px; }
+    .settings-action { width: 100%; min-height: 36px; padding: 7px 9px; border: 1px solid #304057; border-radius: 8px; background: #0b1422; color: #bfccdc; font: inherit; font-size: 12px; text-align: left; cursor: pointer; transition: .15s; }
+    .settings-action:hover { border-color: #3d6176; background: #132235; color: white; }
+    .settings-action.danger { border-color: #593542; color: #f1a8b2; }
+    .settings-action.danger:hover { border-color: #8b4354; background: #2a1821; color: #ffc0c8; }
+    .settings-feedback { min-height: 16px; margin: 8px 0 0; color: #8cdbbc; font-size: 11px; line-height: 1.4; }
+    .chat-main { min-width: 0; flex: 1; }
+    .sidebar-backdrop { display: none; }
+
+    main {
+      width: min(850px, 92%);
+      min-height: calc(100vh - 135px);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .welcome {
+      text-align: center;
+      margin: 90px 0 35px;
+    }
+
+    .welcome-icon {
+      width: 58px;
+      height: 58px;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 22px;
+      border-radius: 19px;
+      background: #123448;
+      color: var(--accent);
+      font-size: 27px;
+      font-weight: bold;
+      box-shadow: 0 0 35px #22d3ee15;
+    }
+
+    .welcome h1 {
+      margin: 0 0 13px;
+      font-size: clamp(26px, 5vw, 36px);
+    }
+
+    .welcome h1 span {
+      color: var(--accent);
+    }
+
+    .welcome p {
+      max-width: 480px;
+      margin: 0 auto;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .messages {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 27px;
+      padding: 15px 0 30px;
+    }
+
+    .message {
+      width: 100%;
+      display: flex;
+      gap: 13px;
+      align-items: flex-start;
+      animation: appear .2s ease;
+    }
+
+    @keyframes appear {
+      from {
+        opacity: 0;
+        transform: translateY(5px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message.user {
+      justify-content: flex-end;
+    }
+
+    .message.assistant {
+      justify-content: flex-start;
+    }
+
+    .message-avatar {
+      width: 33px;
+      height: 33px;
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 11px;
+      background: #123448;
+      color: var(--accent);
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .message-content {
+      max-width: 82%;
+      min-width: 0;
+      line-height: 1.75;
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    }
+
+    .message-edit {
+      display: block;
+      margin: 8px 0 0 auto;
+      padding: 4px 7px;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      background: transparent;
+      color: #9eb0c8;
+      font: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      transition: color .15s, background .15s, border-color .15s;
+    }
+    .message-edit:hover, .message-edit:focus-visible { color: var(--accent); background: #22d3ee12; border-color: #22d3ee30; }
+    .message-edit { white-space: nowrap; }
+    .photo-history-label { display: block; margin-top: 8px; color: #91a1b7; font-size: 11px; }
+    .stopped-label { margin: 10px 0 0; color: #91a1b7; font-size: 11px; font-style: italic; }
+    @media (hover: hover) and (pointer: fine) {
+      .message-edit { opacity: 0; }
+      .message.user:hover .message-edit, .message-edit:focus-visible { opacity: 1; }
+    }
+
+    /* Il messaggio dell'utente è testo semplice: conserva gli a capo */
+    .user .message-content {
+      white-space: pre-wrap;
+      padding: 12px 17px;
+      border: 1px solid #21465d;
+      border-radius: 18px 18px 4px 18px;
+      background: #142b40;
+    }
+
+    /* La risposta dell'assistente è HTML generato dal Markdown */
+    .assistant .message-content {
+      white-space: normal;
+      padding: 3px 0;
+      color: #e4edf9;
+    }
+
+    .message-content img {
+      display: block;
+      max-width: min(100%, 300px);
+      max-height: 240px;
+      margin-top: 12px;
+      border-radius: 12px;
+      object-fit: contain;
+    }
+
+    .message-name {
+      display: block;
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      margin-bottom: 7px;
+    }
+
+    /* =========================================================
+       MARKDOWN: stile delle risposte di Nexcrank
+       ========================================================= */
+    .md > :first-child {
+      margin-top: 0;
+    }
+
+    .md > :last-child {
+      margin-bottom: 0;
+    }
+
+    .md p {
+      margin: 0 0 12px;
+    }
+
+    /* Titoli (### → h3) */
+    .md h1,
+    .md h2,
+    .md h3,
+    .md h4 {
+      margin: 24px 0 10px;
+      color: var(--text);
+      font-weight: 800;
+      line-height: 1.35;
+      letter-spacing: .2px;
+    }
+
+    .md h1 { font-size: 20px; }
+    .md h2 { font-size: 18px; }
+
+    .md h3 {
+      display: block;
+      font-size: 16px;
+      padding: 9px 13px;
+      border-left: 3px solid var(--accent);
+      border-radius: 0 10px 10px 0;
+      background: linear-gradient(90deg, #22d3ee1c, transparent 85%);
+    }
+
+    .md h4 {
+      font-size: 14px;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* Grassetto e corsivo */
+    .md strong,
+    .md b {
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    .md em,
+    .md i {
+      color: #c4d4ea;
+    }
+
+    /* Elenchi puntati e numerati */
+    .md ul,
+    .md ol {
+      margin: 0 0 14px;
+      padding-left: 24px;
+    }
+
+    .md li {
+      margin: 7px 0;
+      padding-left: 4px;
+    }
+
+    .md ul > li::marker {
+      color: var(--accent);
+    }
+
+    .md ol > li::marker {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .md li > ul,
+    .md li > ol {
+      margin: 6px 0 4px;
+    }
+
+    .md li > p {
+      margin: 0 0 6px;
+    }
+
+    /* Citazioni */
+    .md blockquote {
+      margin: 0 0 14px;
+      padding: 10px 15px;
+      border-left: 3px solid #f59e0b;
+      border-radius: 0 10px 10px 0;
+      background: #f59e0b12;
+      color: #f6dfb2;
+    }
+
+    .md blockquote > :last-child {
+      margin-bottom: 0;
+    }
+
+    .md hr {
+      height: 1px;
+      margin: 20px 0;
+      border: 0;
+      background: var(--border);
+    }
+
+    /* Link */
+    .md a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .md a:hover {
+      color: #67e8f9;
+    }
+
+    /* Codice inline */
+    .md code {
+      padding: 2px 7px;
+      border: 1px solid #2c4258;
+      border-radius: 6px;
+      background: #0d1a2a;
+      color: #7dd3fc;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: .88em;
+    }
+
+    /* Blocchi di codice */
+    .md pre {
+      position: relative;
+      margin: 0 0 14px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      border: 1px solid #263a52;
+      border-radius: 12px;
+      background: #0a1423;
+      box-shadow: inset 0 0 0 1px #22d3ee0d;
+      white-space: pre;
+      line-height: 1.6;
+    }
+
+    .md pre code {
+      display: block;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: none;
+      color: #d6e6f7;
+      font-size: 13px;
+    }
+
+    .md pre::-webkit-scrollbar {
+      height: 8px;
+    }
+
+    .md pre::-webkit-scrollbar-thumb {
+      border-radius: 8px;
+      background: #2a3f58;
+    }
+
+    /* Tabelle */
+    .md table {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      margin: 0 0 14px;
+      overflow-x: auto;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .md th,
+    .md td {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      text-align: left;
+    }
+
+    .md th {
+      background: var(--surface-light);
+      color: var(--accent);
+    }
+
+    /* ---------- Schede visive dei componenti ---------- */
+    .visual-card {
+      display: block;
+      margin: 12px 0;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      white-space: normal;
+      transition: border-color .2s;
+    }
+
+    .visual-card:hover {
+      border-color: var(--accent);
+    }
+
+    .visual-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .visual-card strong {
+      color: inherit;
+      font-weight: 700;
+    }
+
+    .visual-preview {
+      display: block;
+    }
+
+    .visual-preview > .visual-link {
+      display: inline-flex;
+      margin-top: 10px;
+    }
+
+    .visual-preview img {
+      width: 100%;
+      max-width: 100%;
+      max-height: 220px;
+      border-radius: 8px;
+      object-fit: cover;
+      margin-top: 8px;
+      display: block;
+    }
+
+    /* Riquadro mostrato quando non esiste la foto del componente */
+    .visual-fallback {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-top: 8px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background:
+        radial-gradient(circle at 12% 0%, #22d3ee14, transparent 60%),
+        linear-gradient(135deg, #12202f, #0e1828);
+    }
+
+    .visual-icon {
+      width: 54px;
+      height: 54px;
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 15px;
+      background: #123448;
+      color: var(--accent);
+      box-shadow: inset 0 0 0 1px #22d3ee30, 0 0 24px #22d3ee14;
+    }
+
+    .visual-icon svg {
+      width: 30px;
+      height: 30px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .visual-meta {
+      display: block;
+      flex: 1;
+      min-width: 0;
+      line-height: 1.4;
+    }
+
+    .visual-meta strong {
+      display: block;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .visual-meta small {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .md a.visual-link,
+    .visual-link {
+      flex-shrink: 0;
+      padding: 7px 11px;
+      border: 1px solid #2589a3;
+      border-radius: 9px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: bold;
+      text-decoration: none;
+      transition: background .2s;
+    }
+
+    .visual-link:hover {
+      background: #22d3ee18;
+    }
+
+    .composer-area {
+      position: sticky;
+      bottom: 0;
+      padding: 20px 0 18px;
+      background: linear-gradient(
+        to bottom,
+        transparent,
+        var(--background) 18%
+      );
+    }
+
+    .composer {
+      padding: 12px 14px;
+      border: 1px solid #304057;
+      border-radius: 20px;
+      background: #111c2d;
+      box-shadow: 0 8px 35px #0005;
+      transition: border-color .2s;
+    }
+
+    .composer:focus-within {
+      border-color: #2589a3;
+    }
+
+    textarea {
+      display: block;
+      width: 100%;
+      min-height: 48px;
+      max-height: 180px;
+      resize: none;
+      border: 0;
+      outline: none;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 9px 5px;
+    }
+
+    textarea::placeholder {
+      color: #71849c;
+    }
+
+    .composer-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding-top: 7px;
+    }
+
+    .composer-left,
+    .composer-right {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .attach {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #304057;
+      border-radius: 12px;
+      color: #b5c5d9;
+      cursor: pointer;
+      font-size: 21px;
+      transition: .2s;
+    }
+
+    .attach:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    #photo {
+      display: none;
+    }
+
+    #send {
+      width: 39px;
+      height: 39px;
+      border: 0;
+      border-radius: 12px;
+      background: var(--accent);
+      color: #06121b;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: .2s;
+    }
+
+    #send:hover {
+      background: #67e8f9;
+      transform: translateY(-1px);
+    }
+
+    #send:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    #stopResponse { min-height: 39px; padding: 0 12px; border: 1px solid #a44b5a; border-radius: 11px; background: #3a1d29; color: #fecdd3; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+    #stopResponse:hover { background: #512230; }
+    #stopResponse[hidden] { display: none; }
+    .edit-notice { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 9px; padding: 9px 12px; border: 1px solid #226477; border-radius: 10px; background: #102333; color: #bcecf2; font-size: 12px; }
+    .edit-notice[hidden] { display: none; }
+    .edit-notice button { border: 0; background: transparent; color: var(--accent); font: inherit; font-weight: 700; cursor: pointer; }
+
+    .hint {
+      margin: 11px 0 0;
+      text-align: center;
+      color: #71849c;
+      font-size: 11px;
+    }
+
+    .photo-preview {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      margin: 3px 3px 12px;
+      padding: 9px;
+      border: 1px solid #304057;
+      border-radius: 13px;
+      background: #172438;
+    }
+
+    .photo-preview img {
+      width: 58px;
+      height: 58px;
+      border-radius: 9px;
+      object-fit: cover;
+    }
+
+    .photo-info {
+      flex: 1;
+      min-width: 0;
+      color: #b5c5d9;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .remove-photo {
+      border: 0;
+      background: transparent;
+      color: #fb7185;
+      cursor: pointer;
+      padding: 9px;
+    }
+
+    .error {
+      display: none;
+      margin: 0 0 10px;
+      padding: 10px 13px;
+      border: 1px solid #783c50;
+      border-radius: 10px;
+      background: #321c2b;
+      color: #fda4af;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    footer {
+      padding: 12px 15px 18px;
+      text-align: center;
+      color: #63748b;
+      font-size: 11px;
+    }
+
+    @media (max-width: 760px) {
+      header { padding: 0 4%; }
+      .history-toggle { display: grid; place-items: center; }
+      .header-brand { display: flex; align-items: center; gap: 10px; }
+      .sidebar {
+        position: fixed;
+        z-index: 1002;
+        inset: 0 auto 0 0;
+        width: min(300px, 84vw);
+        height: 100vh;
+        height: 100dvh;
+        padding-top: max(20px, env(safe-area-inset-top));
+        transform: translateX(-102%);
+        transition: transform .22s ease;
+        box-shadow: 18px 0 45px #0008;
+      }
+      body.sidebar-open .sidebar { transform: translateX(0); }
+      .sidebar-backdrop {
+        position: fixed;
+        z-index: 1001;
+        inset: 0;
+        display: block;
+        border: 0;
+        background: #0009;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity .22s, visibility .22s;
+      }
+      body.sidebar-open .sidebar-backdrop { opacity: 1; visibility: visible; }
+      .history-list { max-height: calc(100dvh - 220px); }
+      .history-delete { opacity: 1; }
+      .app-shell { min-height: calc(100vh - 112px); }
+    }
+
+    @media (max-width: 600px) {
+      header {
+        height: 62px;
+        padding: 0 5%;
+      }
+
+      .header-status { display: none; }
+
+      .logo {
+        font-size: 19px;
+      }
+
+      .header-status {
+        font-size: 9px;
+        letter-spacing: 1px;
+      }
+
+      main {
+        width: 92%;
+        min-height: calc(100vh - 120px);
+      }
+
+      .welcome {
+        margin: 65px 0 28px;
+      }
+
+      .messages {
+        gap: 22px;
+      }
+
+      .message-content {
+        max-width: 88%;
+        font-size: 14px;
+      }
+
+      .message-edit { opacity: 1; }
+
+      .md h3 {
+        font-size: 15px;
+        padding: 8px 11px;
+      }
+
+      .md ul,
+      .md ol {
+        padding-left: 20px;
+      }
+
+      .md pre {
+        padding: 12px;
+      }
+
+      .md pre code {
+        font-size: 12px;
+      }
+
+      .composer-area {
+        padding-top: 14px;
+      }
+
+      textarea { font-size: 16px; }
+
+      .visual-fallback {
+        flex-wrap: wrap;
+      }
+
+      .visual-link {
+        width: 100%;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="header-brand">
+      <button id="historyToggle" class="history-toggle" type="button" aria-label="Apri cronologia chat" aria-expanded="false">☰</button>
+      <div class="logo">NEX<span>CRANK</span></div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 15px;">
+      <a href="guida3d.html" class="guide-link" aria-label="Apri la Guida 3D interattiva">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4.5 7.7 7.5 4.4 7.5-4.4M12 12v8.5"/></svg>
+        <span>Guida 3D</span>
+      </a>
+      <div class="header-status">BIKE INTELLIGENCE</div>
+    </div>
+  </header>
+
+  <div class="app-shell">
+    <aside id="sidebar" class="sidebar" aria-label="Cronologia chat">
+      <button id="newChat" class="new-chat" type="button"><span>＋</span> Nuova chat</button>
+      <h2 class="history-heading">Cronologia</h2>
+      <nav id="historyList" class="history-list" aria-label="Conversazioni salvate"></nav>
+      <p class="sidebar-note">Le conversazioni sono salvate su questo dispositivo. Le foto allegate non vengono conservate.</p>
+      <div class="account-area">
+        <a id="accountLink" class="account-login" href="accesso.html">
+          <span class="account-avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.7-3.2 3.2-5 7-5s6.3 1.8 7 5"/></svg></span>
+          <span class="account-copy"><span class="account-title">Il tuo account</span><span class="account-subtitle">Accedi o crea un account</span></span>
+          <svg class="account-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+        </a>
+        <div id="accountInfo" class="account-info" hidden>
+          <span class="account-avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.7-3.2 3.2-5 7-5s6.3 1.8 7 5"/></svg></span>
+          <span class="account-details"><span class="account-kicker">Connesso</span><span id="accountEmail" class="account-email"></span></span>
+          <button id="accountLogout" class="account-logout" type="button">Esci</button>
+        </div>
+      </div>
+      <div class="sidebar-settings">
+        <button id="settingsToggle" class="settings-toggle" type="button" aria-expanded="false" aria-controls="settingsPanel">⚙️ Impostazioni</button>
+        <div id="settingsPanel" class="settings-panel" hidden>
+          <label for="retentionSelect">Elimina automaticamente le chat dopo</label>
+          <select id="retentionSelect">
+            <option value="0">Mai (disattivato)</option>
+            <option value="14">14 giorni</option>
+            <option value="30">30 giorni</option>
+            <option value="60">60 giorni</option>
+          </select>
+          <p>Il conteggio parte dalla creazione della chat. La scelta è facoltativa e puoi cambiarla quando vuoi.</p>
+          <span class="settings-section-title">Gestione conversazioni</span>
+          <div class="settings-actions">
+            <button id="exportChats" class="settings-action" type="button">Esporta conversazioni (.txt)</button>
+            <button id="deleteAllChats" class="settings-action danger" type="button">Elimina tutte le chat</button>
+          </div>
+          <p id="settingsFeedback" class="settings-feedback" role="status" aria-live="polite"></p>
+        </div>
+      </div>
+    </aside>
+    <button id="sidebarBackdrop" class="sidebar-backdrop" type="button" aria-label="Chiudi cronologia"></button>
+    <div class="chat-main">
+  <main>
+    <section class="welcome" id="welcome">
+      <div class="welcome-icon">N</div>
+      <h1>Benvenuto su <span>Nexcrank.</span></h1>
+      <p>
+        Descrivi il problema della tua bici o inviami una foto.
+        Ti aiuterò a capire da dove iniziare, passo dopo passo.
+      </p>
+    </section>
+
+    <section class="messages" id="messages" aria-live="polite"></section>
+
+    <div class="composer-area">
+      <div class="edit-notice" id="editNotice" hidden>
+        <span id="editNoticeText">Stai modificando un tuo messaggio</span>
+        <button id="cancelEdit" type="button">Annulla</button>
+      </div>
+      <div class="error" id="error" role="alert"></div>
+
+      <div class="composer">
+        <div class="photo-preview" id="photoPreview">
+          <img id="preview" alt="Anteprima della foto">
+          <div class="photo-info" id="fileName"></div>
+          <button class="remove-photo" id="removePhoto" type="button">
+            Rimuovi
+          </button>
+        </div>
+
+        <textarea
+          id="problem"
+          rows="1"
+          placeholder="Chiedi qualcosa a Nexcrank..."
+          aria-label="Messaggio per Nexcrank"
+        ></textarea>
+
+        <div class="composer-bottom">
+          <div class="composer-left">
+            <label class="attach" for="photo" title="Allega una foto">＋</label>
+            <input
+              id="photo"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+            >
+          </div>
+
+          <div class="composer-right">
+            <button id="stopResponse" type="button" hidden>■ Interrompi</button>
+            <button id="send" type="button" title="Invia messaggio">↑</button>
+          </div>
+        </div>
+      </div>
+
+      <p class="hint">
+        Nexcrank può commettere errori. Per verifiche meccaniche affidati a un professionista.
+      </p>
+    </div>
+  </main>
+    </div>
+  </div>
+
+  <footer>
+    <div>NEXCRANK · BIKE INTELLIGENCE</div>
+    <nav aria-label="Informazioni legali" style="display:flex;justify-content:center;gap:18px;margin-top:8px"><a href="privacy.html" style="color:#8fa1b8">Privacy</a><a href="termini.html" style="color:#8fa1b8">Termini di servizio</a></nav>
+  </footer>
+
+  <script>
+    const problem = document.getElementById("problem");
+    const photo = document.getElementById("photo");
+    const preview = document.getElementById("preview");
+    const photoPreview = document.getElementById("photoPreview");
+    const fileName = document.getElementById("fileName");
+    const removePhoto = document.getElementById("removePhoto");
+    const send = document.getElementById("send");
+    const stopResponse = document.getElementById("stopResponse");
+    const editNotice = document.getElementById("editNotice");
+    const editNoticeText = document.getElementById("editNoticeText");
+    const cancelEdit = document.getElementById("cancelEdit");
+    const messages = document.getElementById("messages");
+    const error = document.getElementById("error");
+    const welcome = document.getElementById("welcome");
+
+    const CHIAVE_CHAT = "nexcrank-chat-v1"; // chiave della vecchia chat singola
+    const CHIAVE_CRONOLOGIA = "nexcrank-conversations-v1";
+    const historyList = document.getElementById("historyList");
+    const newChatButton = document.getElementById("newChat");
+    const historyToggle = document.getElementById("historyToggle");
+    const settingsToggle = document.getElementById("settingsToggle");
+    const settingsPanel = document.getElementById("settingsPanel");
+    const retentionSelect = document.getElementById("retentionSelect");
+    const exportChatsButton = document.getElementById("exportChats");
+    const deleteAllChatsButton = document.getElementById("deleteAllChats");
+    const settingsFeedback = document.getElementById("settingsFeedback");
+    const accountLink = document.getElementById("accountLink");
+    const accountInfo = document.getElementById("accountInfo");
+    const accountEmail = document.getElementById("accountEmail");
+    const accountLogout = document.getElementById("accountLogout");
+    let cronologia = [];
+    let messaggiSalvati = [];
+    let fotoSelezionata = null;
+    let conversazioni = [];
+    let conversazioneAttivaId = null;
+    let impostazioni = { scadenzaGiorni: 0 };
+    let timerScadenza = null;
+    let indiceInModifica = null;
+    let controllerRichiesta = null;
+
+    function creaIdConversazione() {
+      return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    }
+
+    async function aggiornaAccount() {
+      try {
+        const risposta = await fetch("/api/auth/me", { cache: "no-store" });
+        if (!risposta.ok) return;
+        const dati = await risposta.json();
+        if (dati.utente?.email) {
+          accountEmail.textContent = dati.utente.email;
+          accountLink.hidden = true;
+          accountInfo.hidden = false;
+        }
+      } catch (err) {
+        console.warn("Stato account non disponibile.", err);
+      }
+    }
+
+    accountLogout.addEventListener("click", async () => {
+      accountLogout.disabled = true;
+      try {
+        await fetch("/api/auth/logout", { method: "POST" });
+      } finally {
+        accountInfo.hidden = true;
+        accountLink.hidden = false;
+        accountLogout.disabled = false;
+      }
+    });
+
+    function titoloConversazione(testo) {
+      const pulito = testo.replace(/\s+/g, " ").trim();
+      return pulito.length > 34 ? `${pulito.slice(0, 34).trim()}…` : pulito;
+    }
+
+    function renderCronologia() {
+      historyList.replaceChildren();
+      const ordinate = [...conversazioni].sort((a, b) => b.aggiornata - a.aggiornata);
+      if (!ordinate.length) {
+        const vuoto = document.createElement("p");
+        vuoto.className = "history-empty";
+        vuoto.textContent = "Le nuove conversazioni appariranno qui.";
+        historyList.appendChild(vuoto);
+        return;
+      }
+
+      ordinate.forEach(conversazione => {
+        const riga = document.createElement("div");
+        riga.className = "history-row";
+        const voce = document.createElement("button");
+        voce.type = "button";
+        voce.className = "history-item" + (conversazione.id === conversazioneAttivaId ? " active" : "");
+        voce.textContent = conversazione.titolo || "Nuova chat";
+        voce.title = conversazione.titolo || "Nuova chat";
+        if (conversazione.id === conversazioneAttivaId) voce.setAttribute("aria-current", "page");
+        voce.addEventListener("click", () => apriConversazione(conversazione.id));
+        const cestino = document.createElement("button");
+        cestino.type = "button";
+        cestino.className = "history-delete";
+        cestino.title = "Elimina questa chat";
+        cestino.setAttribute("aria-label", `Elimina la chat: ${conversazione.titolo || "Nuova chat"}`);
+        cestino.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M5.5 7l1 14h11l1-14M9 7V4h6v3"/></svg>';
+        cestino.addEventListener("click", event => {
+          event.stopPropagation();
+          eliminaConversazione(conversazione.id);
+        });
+        riga.append(voce, cestino);
+        historyList.appendChild(riga);
+      });
+    }
+
+    function eliminaConversazione(id) {
+      if (send.disabled) return;
+      const daEliminare = conversazioni.find(c => c.id === id);
+      if (!daEliminare || !window.confirm(`Eliminare la chat “${daEliminare.titolo || "Nuova chat"}”?`)) return;
+      conversazioni = conversazioni.filter(c => c.id !== id);
+      if (conversazioneAttivaId === id) {
+        conversazioneAttivaId = null;
+        cronologia = [];
+        messaggiSalvati = [];
+        indiceInModifica = null;
+        editNotice.hidden = true;
+        messages.replaceChildren();
+        welcome.style.display = "block";
+        problem.value = "";
+        problem.style.height = "auto";
+        rimuoviFoto();
+        send.title = "Invia messaggio";
+      }
+      salvaChat();
+    }
+
+    function esportaConversazioni() {
+      if (send.disabled) {
+        settingsFeedback.textContent = "Attendi che la risposta termini prima di esportare.";
+        return;
+      }
+      salvaChat();
+      if (!conversazioni.length) {
+        settingsFeedback.textContent = "Non ci sono conversazioni da esportare.";
+        return;
+      }
+
+      const ordinate = [...conversazioni].sort((a, b) => (Number(a.creata) || 0) - (Number(b.creata) || 0));
+      const righe = [
+        "NEXCRANK — Cronologia conversazioni",
+        `Esportata il ${new Date().toLocaleString("it-IT")}`,
+        "Le eventuali foto allegate non sono incluse nell’esportazione.",
+        ""
+      ];
+      ordinate.forEach((conversazione, indice) => {
+        const data = Number(conversazione.creata) || Number(conversazione.aggiornata) || Date.now();
+        righe.push(`CONVERSAZIONE ${indice + 1}: ${conversazione.titolo || "Nuova chat"}`);
+        righe.push(`Creata il ${new Date(data).toLocaleString("it-IT")}`);
+        righe.push("");
+        (Array.isArray(conversazione.messaggi) ? conversazione.messaggi : []).forEach(messaggio => {
+          if (!messaggio || (messaggio.ruolo !== "user" && messaggio.ruolo !== "assistant")) return;
+          righe.push(`${messaggio.ruolo === "user" ? "Tu" : "Nexcrank"}${messaggio.haFoto ? " [foto non inclusa]" : ""}:`);
+          righe.push(String(messaggio.testo || ""));
+          righe.push("");
+        });
+        righe.push("────────────────────────────────────────", "");
+      });
+
+      const file = new Blob([righe.join("\n")], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `nexcrank-conversazioni-${new Date().toISOString().slice(0, 10)}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      settingsFeedback.textContent = "Esportazione pronta: controlla i download del dispositivo.";
+    }
+
+    function eliminaTutteLeConversazioni() {
+      if (send.disabled) {
+        settingsFeedback.textContent = "Attendi che la risposta termini prima di eliminare le chat.";
+        return;
+      }
+      if (!conversazioni.length) {
+        settingsFeedback.textContent = "Non ci sono chat da eliminare.";
+        return;
+      }
+      const conferma = window.confirm("Eliminare tutte le conversazioni salvate in questo browser? Questa operazione non si può annullare.");
+      if (!conferma) return;
+
+      conversazioni = [];
+      conversazioneAttivaId = null;
+      cronologia = [];
+      messaggiSalvati = [];
+      indiceInModifica = null;
+      editNotice.hidden = true;
+      editNoticeText.textContent = "Stai modificando un tuo messaggio";
+      messages.replaceChildren();
+      welcome.style.display = "block";
+      problem.value = "";
+      problem.style.height = "auto";
+      rimuoviFoto();
+      send.title = "Invia messaggio";
+      localStorage.removeItem(CHIAVE_CRONOLOGIA);
+      sessionStorage.removeItem(CHIAVE_CHAT);
+      salvaChat();
+      settingsFeedback.textContent = "Tutte le chat salvate su questo browser sono state eliminate.";
+    }
+
+    function applicaScadenza() {
+      const giorni = Number(impostazioni.scadenzaGiorni) || 0;
+      if (!giorni) return 0;
+      const limite = Date.now() - giorni * 24 * 60 * 60 * 1000;
+      const conteggioIniziale = conversazioni.length;
+      conversazioni = conversazioni.filter(c => (Number(c.creata) || Number(c.aggiornata) || Date.now()) >= limite);
+      const eliminate = conteggioIniziale - conversazioni.length;
+      if (conversazioneAttivaId && !conversazioni.some(c => c.id === conversazioneAttivaId)) {
+        conversazioneAttivaId = null;
+        cronologia = [];
+        messaggiSalvati = [];
+        indiceInModifica = null;
+        editNotice.hidden = true;
+        messages.replaceChildren();
+        welcome.style.display = "block";
+        problem.value = "";
+        problem.style.height = "auto";
+        rimuoviFoto();
+        send.title = "Invia messaggio";
+      }
+      return eliminate;
+    }
+
+    function programmaScadenza() {
+      clearTimeout(timerScadenza);
+      const giorni = Number(impostazioni.scadenzaGiorni) || 0;
+      if (!giorni || !conversazioni.length) return;
+      const durata = giorni * 24 * 60 * 60 * 1000;
+      const prossimaScadenza = Math.min(...conversazioni.map(c => (Number(c.creata) || Number(c.aggiornata) || Date.now()) + durata));
+      const attesa = Math.min(Math.max(1000, prossimaScadenza - Date.now()), 2147483647);
+      timerScadenza = setTimeout(() => {
+        applicaScadenza();
+        salvaChat();
+        programmaScadenza();
+      }, attesa);
+    }
+
+    function renderMessaggiSalvati() {
+      messages.replaceChildren();
+      messaggiSalvati.forEach((m, indice) => {
+        if (m && (m.ruolo === "user" || m.ruolo === "assistant") && typeof m.testo === "string") {
+          aggiungiMessaggio(m.testo, m.ruolo, null, false, indice, Boolean(m.haFoto));
+        }
+      });
+      welcome.style.display = messaggiSalvati.length ? "none" : "block";
+      if (messaggiSalvati.length) {
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "auto" });
+      }
+    }
+
+    function caricaChatSalvata() {
+      try {
+        const salvate = localStorage.getItem(CHIAVE_CRONOLOGIA);
+        if (salvate) {
+          const stato = JSON.parse(salvate);
+          conversazioni = Array.isArray(stato.conversazioni) ? stato.conversazioni.map(c => ({
+            ...c,
+            creata: Number(c.creata) || Number(c.aggiornata) || Date.now(),
+            aggiornata: Number(c.aggiornata) || Number(c.creata) || Date.now()
+          })) : [];
+          conversazioneAttivaId = stato.attivaId || null;
+          const giorni = Number(stato.impostazioni?.scadenzaGiorni) || 0;
+          impostazioni.scadenzaGiorni = [0, 14, 30, 60].includes(giorni) ? giorni : 0;
+        }
+
+        // Migra la chat singola già presente nella scheda, senza perdere i messaggi.
+        if (!conversazioni.length) {
+          const vecchia = sessionStorage.getItem(CHIAVE_CHAT);
+          if (vecchia) {
+            const statoVecchio = JSON.parse(vecchia);
+            const messaggi = Array.isArray(statoVecchio.messaggi) ? statoVecchio.messaggi : [];
+            if (messaggi.length) {
+              const primoTesto = messaggi.find(m => m.ruolo === "user")?.testo || "Conversazione precedente";
+              const id = creaIdConversazione();
+              conversazioni.push({
+                id,
+                titolo: titoloConversazione(primoTesto) || "Conversazione precedente",
+                creata: Date.now(),
+                aggiornata: Date.now(),
+                messaggi: messaggi.slice(-80),
+                cronologia: Array.isArray(statoVecchio.cronologia) ? statoVecchio.cronologia.slice(-10) : []
+              });
+              conversazioneAttivaId = id;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Nexcrank: non riesco a ripristinare la cronologia.", err);
+        conversazioni = [];
+        conversazioneAttivaId = null;
+      }
+    }
+
+    function salvaChat() {
+      try {
+        const attiva = conversazioni.find(c => c.id === conversazioneAttivaId);
+        if (attiva) {
+          attiva.messaggi = messaggiSalvati.slice(-60).map(m => ({
+            ruolo: m.ruolo,
+            testo: String(m.testo || "").slice(0, 12000),
+            haFoto: Boolean(m.haFoto)
+          }));
+          // Le immagini restano nel contesto della scheda corrente, non nella cronologia salvata.
+          attiva.cronologia = cronologia.slice(-10).map(m => ({
+            ruolo: m.ruolo,
+            testo: String(m.testo || "").slice(0, 12000)
+          }));
+          attiva.aggiornata = Date.now();
+          const primoTesto = attiva.messaggi.find(m => m.ruolo === "user")?.testo;
+          if (primoTesto) attiva.titolo = titoloConversazione(primoTesto);
+        }
+        conversazioni = [...conversazioni]
+          .sort((a, b) => b.aggiornata - a.aggiornata)
+          .slice(0, 40);
+        if (conversazioneAttivaId && !conversazioni.some(c => c.id === conversazioneAttivaId)) {
+          conversazioneAttivaId = null;
+        }
+        let datiDaSalvare = JSON.stringify({ attivaId: conversazioneAttivaId, conversazioni, impostazioni });
+        while (datiDaSalvare.length > 3200000 && conversazioni.length > 1) {
+          let indicePiuVecchia = -1;
+          for (let i = conversazioni.length - 1; i >= 0; i--) {
+            if (conversazioni[i].id !== conversazioneAttivaId) { indicePiuVecchia = i; break; }
+          }
+          if (indicePiuVecchia < 0) break;
+          conversazioni.splice(indicePiuVecchia, 1);
+          datiDaSalvare = JSON.stringify({ attivaId: conversazioneAttivaId, conversazioni, impostazioni });
+        }
+        localStorage.setItem(CHIAVE_CRONOLOGIA, datiDaSalvare);
+        renderCronologia();
+        programmaScadenza();
+      } catch (err) {
+        console.warn("Nexcrank: non riesco a salvare la cronologia su questo dispositivo.", err);
+      }
+    }
+
+    function apriConversazione(id) {
+      if (send.disabled) return;
+      const scelta = conversazioni.find(c => c.id === id);
+      if (!scelta) return;
+      conversazioneAttivaId = scelta.id;
+      cronologia = Array.isArray(scelta.cronologia) ? scelta.cronologia.slice(-10) : [];
+      messaggiSalvati = Array.isArray(scelta.messaggi) ? scelta.messaggi.slice(-80) : [];
+      indiceInModifica = null;
+      editNotice.hidden = true;
+      send.title = "Invia messaggio";
+      rimuoviFoto();
+      mostraErrore("");
+      renderMessaggiSalvati();
+      salvaChat();
+      chiudiSidebar();
+    }
+
+    function nuovaChat() {
+      if (send.disabled) return;
+      conversazioneAttivaId = null;
+      cronologia = [];
+      messaggiSalvati = [];
+      indiceInModifica = null;
+      editNotice.hidden = true;
+      send.title = "Invia messaggio";
+      messages.replaceChildren();
+      welcome.style.display = "block";
+      problem.value = "";
+      problem.style.height = "auto";
+      rimuoviFoto();
+      mostraErrore("");
+      renderCronologia();
+      try {
+        localStorage.setItem(CHIAVE_CRONOLOGIA, JSON.stringify({ attivaId: null, conversazioni, impostazioni }));
+      } catch (err) {
+        console.warn("Nexcrank: non riesco ad aggiornare la cronologia.", err);
+      }
+      chiudiSidebar();
+      problem.focus();
+    }
+
+    function apriSidebar() {
+      document.body.classList.add("sidebar-open");
+      historyToggle.setAttribute("aria-expanded", "true");
+    }
+
+    function chiudiSidebar() {
+      document.body.classList.remove("sidebar-open");
+      historyToggle.setAttribute("aria-expanded", "false");
+    }
+
+    function mostraErrore(messaggio) {
+      error.textContent = messaggio;
+      error.style.display = messaggio ? "block" : "none";
+    }
+
+    // ------------------------------------------------------------
+    //  Configurazione Markdown (marked + DOMPurify)
+    // ------------------------------------------------------------
+    const markdownDisponibile =
+      typeof marked !== "undefined" && typeof DOMPurify !== "undefined";
+
+    if (markdownDisponibile) {
+      marked.setOptions({
+        gfm: true,        // tabelle, liste di attività, ecc.
+        breaks: true      // un singolo a capo diventa <br>
+      });
+
+      // Link esterni: si aprono in una nuova scheda in modo sicuro
+      DOMPurify.addHook("afterSanitizeAttributes", node => {
+        if (node.tagName === "A" && node.getAttribute("href")) {
+          node.setAttribute("target", "_blank");
+          node.setAttribute("rel", "noopener noreferrer");
+        }
+      });
+    }
+
+    // ------------------------------------------------------------
+    //  Schede visive dei componenti
+    // ------------------------------------------------------------
+
+    // Icone (viewBox 24x24) per categoria di componente
+    const ICONE = {
+      freno: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/>',
+      trasmissione: '<circle cx="7" cy="12" r="4"/><circle cx="18" cy="12" r="2.5"/><path d="M7 8l11 1.5M7 16l11-1.5"/>',
+      forcella: '<path d="M5 4h14M8 4v13M16 4v13"/><circle cx="12" cy="19" r="2"/>',
+      ebike: '<rect x="3" y="7" width="16" height="10" rx="2"/><path d="M21 10v4M10 9l-2 3h4l-2 3"/>',
+      ruota: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/><path d="M5.6 5.6l5 5M13.4 13.4l5 5M18.4 5.6l-5 5M10.6 13.4l-5 5"/>',
+      utensile: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',
+      generico: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/>'
+    };
+
+    const CATEGORIE = [
+      { chiave: "trasmissione", regex: /catena|pignon|cassett|corona|trasmission|deragli|cambio|chain|cog|guarnitura|pedivella/ },
+      { chiave: "freno", regex: /freno|disco|pastigli|pinza|brake|caliper|rotor|leva[_\s-]*freno|freno[_\s-]*leva/ },
+      { chiave: "forcella", regex: /forcell|ammortizz|sospension|fork|shock|stelo/ },
+      { chiave: "ebike", regex: /motore|batteria|ebike|e-bike|motor|battery/ },
+      { chiave: "ruota", regex: /ruota|cerchio|raggi|copertone|pneumatic|gomma|wheel|tire|tyre|mozzo/ }
+    ];
+
+    // Categorie che hanno un modello nella Guida 3D
+    const SISTEMA_GUIDA = {
+      freno: "brake",
+      trasmissione: "transmission",
+      forcella: "fork",
+      ebike: "ebike"
+    };
+
+    // Attrezzi e utensili da officina: non sono componenti della bici, quindi
+    // niente collegamento alla Guida 3D (si confronta il nome già in minuscolo)
+    const REGEX_UTENSILI = /smagliacatena|spezzacatena|chiave|chiavi|cacciavit|brugol|esagonal|torx|dinamometric|torsiometr|estrattor|estrattore|smontagomm|lev[ae][_\s-]*copertoni?|tendiraggi|centraruote|tronchese|martello|morsa|cavalletto|spessimetro|calibro|(?:^|[^a-z0-9])kit(?:$|[^a-z0-9])|multitool|multi[_\s-]?tool|attrezz|utensil|wrench|plier|screwdriver|allen|torque|extractor|(?:^|[^a-z0-9])tool/;
+    const REGEX_PINZA = /pinz[ae]/;
+    const REGEX_PINZA_FRENO = /freno|idraulic|disco|brake|caliper|pistoni|pastigli/;
+
+    function isUtensile(nome) {
+      const n = nome.toLowerCase();
+      if (REGEX_UTENSILI.test(n)) return true;
+      // "pinza" da sola è un attrezzo, "pinza freno" è un componente
+      return REGEX_PINZA.test(n) && !REGEX_PINZA_FRENO.test(n);
+    }
+
+    function categoriaComponente(nome) {
+      const n = nome.toLowerCase();
+      if (isUtensile(n)) return "utensile";
+      const trovata = CATEGORIE.find(c => c.regex.test(n));
+      return trovata ? trovata.chiave : "generico";
+    }
+
+    // Stato di caricamento delle foto: evita richieste ripetute durante lo streaming
+    const statoImmagini = new Map();   // nome -> "ok" | "ko"
+
+    function escapeHtml(testo) {
+      return testo
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    // La scheda usa solo <span> (con display via CSS) così può stare
+    // anche dentro paragrafi, elenchi e grassetti senza rompere l'HTML.
+    function costruisciCard(nomeComponente) {
+      const titolo = nomeComponente
+        .replace(/[_-]/g, " ")
+        .replace(/\b\w/g, l => l.toUpperCase());
+      const categoria = categoriaComponente(nomeComponente);
+      const stato = statoImmagini.get(nomeComponente);
+
+      // La foto viene tentata solo se non è già noto che manca
+      const immagine = stato === "ko" ? "" :
+        `<img class="visual-img" data-componente="${nomeComponente}" src="/img/${nomeComponente}.jpg" alt="${titolo}"${stato === "ok" ? "" : ' style="display:none"'}>`;
+
+      // Riquadro con icona: visibile finché la foto non è disponibile
+      const sistema = SISTEMA_GUIDA[categoria];
+      const partiGuida = {
+        pinza_freno: "semicorpo_esterno_della_pinza"
+      };
+      const parteGuida = partiGuida[nomeComponente.toLowerCase()] || nomeComponente;
+      const guida = sistema
+        ? `<a class="visual-link" href="guida3d.html?sistema=${sistema}&amp;parte=${encodeURIComponent(parteGuida)}&amp;ritorno=chat">Apri nella Guida 3D →</a>`
+        : "";
+      const segnaposto = stato === "ok" ? "" :
+        `<span class="visual-fallback"><span class="visual-icon"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONE[categoria]}</svg></span><span class="visual-meta"><small>${categoria === "utensile" ? "Attrezzo da officina" : "Componente della bicicletta"}</small></span></span>`;
+
+      return `<span class="visual-card"><span class="visual-badge"><span>${categoria === "utensile" ? "🔧 Attrezzo" : "📷 Componente"}: <strong>${titolo}</strong></span></span><span class="visual-preview">${immagine}${segnaposto}${guida}</span></span>`;
+    }
+
+    // ------------------------------------------------------------
+    //  Rendering: Markdown + tag [VISUAL: ...]
+    //  1) i tag vengono sostituiti da segnaposto alfanumerici
+    //     (che il Markdown non altera);
+    //  2) il testo viene convertito in HTML e sanificato;
+    //  3) i segnaposto diventano le schede visive.
+    // ------------------------------------------------------------
+    function formattaTestoConVisual(testo) {
+      const schede = [];
+
+      const conSegnaposto = testo.replace(
+        /`?\[VISUAL:\s*([a-zA-Z0-9_-]+)\]`?/g,
+        (match, nomeComponente) => {
+          schede.push(costruisciCard(nomeComponente));
+          return `NXVISUAL${schede.length - 1}NXEND`;
+        }
+      );
+
+      let html;
+
+      if (markdownDisponibile) {
+        const grezzo = marked.parse(conSegnaposto);
+        html = DOMPurify.sanitize(grezzo, { FORBID_ATTR: ["style"] });
+      } else {
+        // Se le librerie non si caricano: testo semplice, ma sicuro
+        html = escapeHtml(conSegnaposto).replace(/\n/g, "<br>");
+      }
+
+      return html.replace(
+        /NXVISUAL(\d+)NXEND/g,
+        (match, indice) => schede[Number(indice)] || ""
+      );
+    }
+
+    // Esito del caricamento delle foto (gli eventi load/error non risalgono: uso la fase di cattura)
+    messages.addEventListener("load", event => {
+      const img = event.target;
+      if (!img.classList || !img.classList.contains("visual-img")) return;
+      statoImmagini.set(img.dataset.componente, "ok");
+      img.style.display = "block";
+      const segnaposto = img.parentElement.querySelector(".visual-fallback");
+      if (segnaposto) segnaposto.remove();
+    }, true);
+
+    messages.addEventListener("error", event => {
+      const img = event.target;
+      if (!img.classList || !img.classList.contains("visual-img")) return;
+      statoImmagini.set(img.dataset.componente, "ko");
+      img.remove();
+    }, true);
+
+    // ------------------------------------------------------------
+
+    function aggiungiMessaggio(testo, ruolo, immagine = null, scroll = true, indiceSalvato = null, haFotoSalvata = false) {
+      const box = document.createElement("div");
+      box.className = "message " + ruolo;
+
+      if (ruolo === "assistant") {
+        const avatar = document.createElement("div");
+        avatar.className = "message-avatar";
+        avatar.textContent = "N";
+        box.appendChild(avatar);
+      }
+
+      const contenuto = document.createElement("div");
+      contenuto.className = "message-content";
+
+      if (ruolo === "assistant") {
+        const nome = document.createElement("span");
+        nome.className = "message-name";
+        nome.textContent = "NEXCRANK AI";
+        contenuto.appendChild(nome);
+      }
+
+      const testoElemento = document.createElement("div");
+
+      // Assistente: Markdown + schede visive. Utente: testo semplice.
+      if (ruolo === "assistant") {
+        testoElemento.className = "md";
+        testoElemento.innerHTML = formattaTestoConVisual(testo);
+      } else {
+        testoElemento.textContent = testo;
+      }
+
+      contenuto.appendChild(testoElemento);
+
+      if (immagine) {
+        const img = document.createElement("img");
+        img.src = immagine;
+        img.alt = "Foto inviata dall'utente";
+        contenuto.appendChild(img);
+      } else if (ruolo === "user" && haFotoSalvata) {
+        const notaFoto = document.createElement("small");
+        notaFoto.className = "photo-history-label";
+        notaFoto.textContent = "📷 Foto allegata nella chat originale";
+        contenuto.appendChild(notaFoto);
+      }
+
+      if (ruolo === "user" && Number.isInteger(indiceSalvato)) {
+        const modifica = document.createElement("button");
+        modifica.type = "button";
+        modifica.className = "message-edit";
+        modifica.textContent = "✎ Modifica";
+        modifica.setAttribute("aria-label", "Modifica questo messaggio");
+        modifica.addEventListener("click", () => entraInModifica(indiceSalvato));
+        contenuto.appendChild(modifica);
+      }
+
+      box.appendChild(contenuto);
+      messages.appendChild(box);
+
+      welcome.style.display = "none";
+      if (scroll) box.scrollIntoView({ behavior: "smooth", block: "end" });
+
+      return testoElemento;
+    }
+
+    function entraInModifica(indice) {
+      if (send.disabled) return;
+      const messaggio = messaggiSalvati[indice];
+      if (!messaggio || messaggio.ruolo !== "user") return;
+      indiceInModifica = indice;
+      problem.value = messaggio.testo;
+      problem.style.height = "auto";
+      problem.style.height = Math.min(problem.scrollHeight, 180) + "px";
+      editNoticeText.textContent = messaggio.haFoto
+        ? "Modifica la domanda. Per includere di nuovo la foto, allegala prima di aggiornare."
+        : "Stai modificando un tuo messaggio";
+      editNotice.hidden = false;
+      send.title = "Aggiorna domanda e rigenera la risposta";
+      problem.focus();
+      document.querySelector(".composer-area").scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+
+    function annullaModifica() {
+      indiceInModifica = null;
+      editNotice.hidden = true;
+      editNoticeText.textContent = "Stai modificando un tuo messaggio";
+      problem.value = "";
+      problem.style.height = "auto";
+      send.title = "Invia messaggio";
+      problem.focus();
+    }
+
+    function ripristinaChat() {
+      caricaChatSalvata();
+      retentionSelect.value = String(impostazioni.scadenzaGiorni);
+      applicaScadenza();
+      const attiva = conversazioni.find(c => c.id === conversazioneAttivaId)
+        || [...conversazioni].sort((a, b) => b.aggiornata - a.aggiornata)[0];
+      conversazioneAttivaId = attiva?.id || null;
+      cronologia = Array.isArray(attiva?.cronologia) ? attiva.cronologia.slice(-10) : [];
+      messaggiSalvati = Array.isArray(attiva?.messaggi) ? attiva.messaggi.slice(-80) : [];
+      renderCronologia();
+      renderMessaggiSalvati();
+      salvaChat();
+    }
+
+    function rimuoviFoto() {
+      if (fotoSelezionata?.url) {
+        URL.revokeObjectURL(fotoSelezionata.url);
+      }
+
+      fotoSelezionata = null;
+      photo.value = "";
+      preview.removeAttribute("src");
+      photoPreview.style.display = "none";
+      fileName.textContent = "";
+    }
+
+    photo.addEventListener("change", () => {
+      const file = photo.files[0];
+      mostraErrore("");
+
+      if (!file) return;
+
+      const tipiConsentiti = [
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+      ];
+
+      if (!tipiConsentiti.includes(file.type)) {
+        mostraErrore("Formato non supportato. Usa JPEG, PNG o WebP.");
+        rimuoviFoto();
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        mostraErrore("La foto supera il limite di 5 MB.");
+        rimuoviFoto();
+        return;
+      }
+
+      rimuoviFoto();
+
+      const url = URL.createObjectURL(file);
+      fotoSelezionata = { file, url };
+
+      preview.src = url;
+      fileName.textContent = file.name;
+      photoPreview.style.display = "flex";
+    });
+
+    removePhoto.addEventListener("click", rimuoviFoto);
+    cancelEdit.addEventListener("click", annullaModifica);
+    stopResponse.addEventListener("click", () => {
+      if (!controllerRichiesta) return;
+      stopResponse.disabled = true;
+      stopResponse.textContent = "Interruzione…";
+      controllerRichiesta.abort();
+    });
+    newChatButton.addEventListener("click", nuovaChat);
+    settingsToggle.addEventListener("click", () => {
+      settingsPanel.hidden = !settingsPanel.hidden;
+      settingsToggle.setAttribute("aria-expanded", String(!settingsPanel.hidden));
+    });
+    retentionSelect.addEventListener("change", () => {
+      if (send.disabled) {
+        retentionSelect.value = String(impostazioni.scadenzaGiorni);
+        return;
+      }
+      impostazioni.scadenzaGiorni = Number(retentionSelect.value) || 0;
+      applicaScadenza();
+      renderCronologia();
+      salvaChat();
+    });
+    exportChatsButton.addEventListener("click", esportaConversazioni);
+    deleteAllChatsButton.addEventListener("click", eliminaTutteLeConversazioni);
+    historyToggle.addEventListener("click", () => {
+      if (document.body.classList.contains("sidebar-open")) chiudiSidebar();
+      else apriSidebar();
+    });
+    document.getElementById("sidebarBackdrop").addEventListener("click", chiudiSidebar);
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") chiudiSidebar();
+    });
+
+    problem.addEventListener("input", () => {
+      problem.style.height = "auto";
+      problem.style.height = Math.min(problem.scrollHeight, 180) + "px";
+    });
+
+    async function inviaMessaggio() {
+      if (send.disabled) return;
+
+      const testo = problem.value.trim();
+      const file = fotoSelezionata?.file || null;
+
+      if (!testo && !file) {
+        mostraErrore("Scrivi un messaggio oppure allega una foto.");
+        return;
+      }
+
+      mostraErrore("");
+      send.disabled = true;
+      send.hidden = true;
+      stopResponse.hidden = false;
+      stopResponse.disabled = false;
+      stopResponse.textContent = "■ Interrompi";
+      controllerRichiesta = new AbortController();
+      let rispostaCompleta = "";
+      let richiestaInterrotta = false;
+
+      const testoDaInviare = testo ||
+        "Analizza questa fotografia della mia bicicletta.";
+
+      let immagineBase64 = null;
+      let tipoImmagine = null;
+      let immagineAnteprima = null;
+      let contenutoRisposta = null;
+
+      try {
+        if (file) {
+          tipoImmagine = file.type;
+
+          const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(
+              new Error("Non riesco a leggere la fotografia.")
+            );
+
+            reader.readAsDataURL(file);
+          });
+
+          immagineAnteprima = dataUrl;
+          immagineBase64 = dataUrl.split(",")[1];
+        }
+
+        if (indiceInModifica !== null) {
+          cronologia = messaggiSalvati.slice(0, indiceInModifica).slice(-10).map(m => ({
+            ruolo: m.ruolo,
+            testo: m.testo
+          }));
+          messaggiSalvati = messaggiSalvati.slice(0, indiceInModifica);
+          renderMessaggiSalvati();
+          indiceInModifica = null;
+          editNotice.hidden = true;
+          editNoticeText.textContent = "Stai modificando un tuo messaggio";
+          send.title = "Invia messaggio";
+        }
+
+        if (messaggiSalvati.length > 58) {
+          messaggiSalvati = messaggiSalvati.slice(-58);
+          renderMessaggiSalvati();
+        }
+
+        if (!conversazioneAttivaId) {
+          const nuova = {
+            id: creaIdConversazione(),
+            titolo: titoloConversazione(testoDaInviare) || "Nuova chat",
+            creata: Date.now(),
+            aggiornata: Date.now(),
+            messaggi: [],
+            cronologia: []
+          };
+          conversazioni.unshift(nuova);
+          conversazioneAttivaId = nuova.id;
+        }
+        messaggiSalvati.push({ ruolo: "user", testo: testoDaInviare, haFoto: Boolean(immagineBase64) });
+        const indiceUtente = messaggiSalvati.length - 1;
+        aggiungiMessaggio(testoDaInviare, "user", immagineAnteprima, true, indiceUtente, Boolean(immagineBase64));
+        salvaChat();
+
+        problem.value = "";
+        problem.style.height = "auto";
+        rimuoviFoto();
+
+        contenutoRisposta = aggiungiMessaggio(
+          "Nexcrank sta analizzando...",
+          "assistant"
+        );
+
+        const cronologiaDaInviare = [...cronologia];
+
+        const response = await fetch("/api/diagnosi", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            problema: testoDaInviare,
+            cronologia: cronologiaDaInviare,
+            immagine: immagineBase64,
+            tipoImmagine: tipoImmagine
+          }),
+          signal: controllerRichiesta.signal
+        });
+
+        if (!response.ok) {
+          const rispostaErrore = await response.text();
+          let messaggioErrore = rispostaErrore;
+
+          try {
+            const dati = JSON.parse(rispostaErrore);
+            messaggioErrore = dati.errore || rispostaErrore;
+          } catch {}
+
+          throw new Error(
+            messaggioErrore || "Errore durante la richiesta."
+          );
+        }
+
+        if (!response.body) {
+          throw new Error("Il server non ha restituito una risposta.");
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        while (true) {
+          const { value, done } = await reader.read();
+
+          if (done) break;
+
+          rispostaCompleta += decoder.decode(value, {
+            stream: true
+          });
+
+          // Rendering Markdown in tempo reale durante lo streaming
+          contenutoRisposta.innerHTML = formattaTestoConVisual(rispostaCompleta);
+          window.scrollTo({
+            top: document.documentElement.scrollHeight,
+            behavior: "auto"
+          });
+        }
+
+        rispostaCompleta += decoder.decode();
+
+        contenutoRisposta.innerHTML = formattaTestoConVisual(rispostaCompleta);
+
+        if (!rispostaCompleta.trim()) {
+          throw new Error("Nexcrank non ha restituito una risposta.");
+        }
+
+        // Conserva nel contesto l'ultima immagine inviata, così l'AI può
+        // rispondere ai successivi messaggi di approfondimento sulla foto.
+        if (immagineBase64) {
+          cronologia.forEach(m => {
+            if (m.ruolo === "user" && m.immagine) {
+              m.immagine = null;
+              m.tipoImmagine = null;
+            }
+          });
+        }
+
+        cronologia.push({
+          ruolo: "user",
+          testo: testoDaInviare,
+          immagine: immagineBase64,
+          tipoImmagine
+        });
+
+        cronologia.push({
+          ruolo: "assistant",
+          testo: rispostaCompleta
+        });
+
+        cronologia = cronologia.slice(-10);
+        messaggiSalvati.push({ ruolo: "assistant", testo: rispostaCompleta });
+        messaggiSalvati = messaggiSalvati.slice(-60);
+        salvaChat();
+
+      } catch (err) {
+        richiestaInterrotta = err.name === "AbortError" || controllerRichiesta?.signal.aborted;
+        if (richiestaInterrotta) {
+          if (immagineBase64) {
+            cronologia.forEach(m => {
+              if (m.ruolo === "user" && m.immagine) { m.immagine = null; m.tipoImmagine = null; }
+            });
+          }
+          cronologia.push({ ruolo: "user", testo: testoDaInviare, immagine: immagineBase64, tipoImmagine });
+          if (rispostaCompleta.trim() && contenutoRisposta) {
+            contenutoRisposta.innerHTML = formattaTestoConVisual(rispostaCompleta);
+            const interrotta = document.createElement("p");
+            interrotta.className = "stopped-label";
+            interrotta.textContent = "Risposta interrotta";
+            contenutoRisposta.appendChild(interrotta);
+            cronologia.push({ ruolo: "assistant", testo: rispostaCompleta });
+            messaggiSalvati.push({ ruolo: "assistant", testo: rispostaCompleta });
+            messaggiSalvati = messaggiSalvati.slice(-60);
+          } else if (contenutoRisposta) {
+            contenutoRisposta.closest(".assistant")?.remove();
+          }
+          cronologia = cronologia.slice(-10);
+          salvaChat();
+        } else {
+          console.error(err);
+          mostraErrore(err.message || "Si è verificato un errore.");
+          if (contenutoRisposta) contenutoRisposta.closest(".assistant")?.remove();
+        }
+
+      } finally {
+        send.disabled = false;
+        send.hidden = false;
+        stopResponse.hidden = true;
+        stopResponse.disabled = false;
+        controllerRichiesta = null;
+        send.textContent = "↑";
+        problem.focus();
+      }
+    }
+
+    ripristinaChat();
+    aggiornaAccount();
+
+    send.addEventListener("click", inviaMessaggio);
+
+    problem.addEventListener("keydown", event => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        inviaMessaggio();
+      }
+    });
+  </script>
+</body>
+</html>
+
