@@ -107,6 +107,7 @@
     <p class="privacy">Le chat restano salvate nel browser su questo dispositivo e non si sincronizzano con l’account.</p>
   </main>
   <script>
+   const API_BASE_URL = "https://nexcrank.onrender.com";
     const loginTab = document.getElementById("loginTab");
     const registerTab = document.getElementById("registerTab");
     const title = document.getElementById("title");
@@ -154,7 +155,7 @@
     loginTab.addEventListener("click", () => setMode("login"));
     registerTab.addEventListener("click", () => setMode("register"));
     async function inviaCredenzialeGoogle(credential, passwordEsistente = "") {
-      const response = await fetch("/api/auth/google", {
+    const response = await fetch(API_BASE_URL + "/api/auth/google", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ credential, password: passwordEsistente })
@@ -191,7 +192,7 @@
 
     async function inizializzaAccessoGoogle() {
       try {
-        const configResponse = await fetch("/api/auth/google-config", { cache: "no-store" });
+        const configResponse = await fetch(API_BASE_URL + "/api/auth/google-config", { cache: "no-store" });
         const config = await configResponse.json();
         if (!config.clientId) {
           googleStatus.textContent = "Per attivare Google serve un ID client nella configurazione del sito.";
@@ -232,7 +233,7 @@
       forgotPassword.disabled = true;
       forgotPassword.textContent = "Invio in corso…";
       try {
-        const response = await fetch("/api/auth/forgot-password", {
+       const response = await fetch(API_BASE_URL + "/api/auth/forgot-password", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: email.value })
@@ -259,7 +260,7 @@
       submitButton.disabled = true;
       submitButton.textContent = mode === "register" ? "Creo l’account…" : "Accesso…";
       try {
-        const response = await fetch(`/api/auth/${mode}`, {
+        const response = await fetch(`${API_BASE_URL}/api/auth/${mode}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: document.getElementById("email").value, password: password.value })

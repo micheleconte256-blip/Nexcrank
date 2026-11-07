@@ -1,0 +1,436 @@
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080d18">
+  <title>Nexcrank | Bike Intelligence</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #080d18;
+      color: #f4f7ff;
+      min-height: 100vh;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px 8%;
+      border-bottom: 1px solid #1c293d;
+    }
+
+    .logo {
+      font-size: 25px;
+      font-weight: 800;
+      letter-spacing: -1px;
+    }
+
+    .logo span {
+      color: #22d3ee;
+    }
+
+    .status {
+      color: #9ba9c0;
+      font-size: 13px;
+    }
+
+    .hero {
+      max-width: 1000px;
+      margin: 75px auto 40px;
+      padding: 0 24px;
+      text-align: center;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 9px 14px;
+      border: 1px solid #164e63;
+      border-radius: 30px;
+      color: #67e8f9;
+      background: #0b2633;
+      font-size: 12px;
+      letter-spacing: 1px;
+      margin-bottom: 25px;
+    }
+
+    h1 {
+      font-size: clamp(38px, 7vw, 68px);
+      line-height: 1.08;
+      letter-spacing: -2px;
+      margin-bottom: 22px;
+    }
+
+    h1 span {
+      color: #22d3ee;
+    }
+
+    .subtitle {
+      max-width: 620px;
+      margin: 0 auto;
+      color: #a6b2c8;
+      font-size: 17px;
+      line-height: 1.7;
+    }
+
+    .panel {
+      max-width: 760px;
+      margin: 42px auto 80px;
+      padding: 28px;
+      border: 1px solid #26364d;
+      border-radius: 20px;
+      background: linear-gradient(145deg, #111b2c, #0b1220);
+      box-shadow: 0 20px 70px #0005;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 12px;
+      font-size: 15px;
+      font-weight: bold;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 125px;
+      padding: 16px;
+      resize: vertical;
+      border: 1px solid #34445c;
+      border-radius: 12px;
+      background: #080f1d;
+      color: white;
+      font: inherit;
+      line-height: 1.5;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: #22d3ee;
+    }
+
+    textarea::placeholder {
+      color: #73829a;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    button, .upload {
+      padding: 13px 18px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button {
+      border: none;
+      background: #22d3ee;
+      color: #06121c;
+    }
+
+    .upload {
+      border: 1px solid #34445c;
+      color: #dce7f8;
+      background: #121e30;
+    }
+
+    #photo {
+      display: none;
+    }
+
+    #fileName {
+      margin-top: 12px;
+      color: #91a4bd;
+      font-size: 13px;
+    }
+
+    .notice {
+      margin-top: 18px;
+      color: #71819a;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .features {
+      max-width: 1000px;
+      margin: 0 auto 80px;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 16px;
+    }
+
+    .feature {
+      padding: 22px;
+      border: 1px solid #1e2b40;
+      border-radius: 15px;
+      background: #0d1523;
+    }
+
+    .feature .symbol {
+      font-size: 25px;
+      margin-bottom: 15px;
+    }
+
+    .feature h2 {
+      font-size: 16px;
+      margin-bottom: 9px;
+    }
+
+    .feature p {
+      color: #92a1b8;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    footer {
+      padding: 25px;
+      border-top: 1px solid #1c293d;
+      text-align: center;
+      color: #71819a;
+      font-size: 12px;
+    }
+
+    @media (max-width: 600px) {
+      header {
+        padding: 20px;
+      }
+
+      .hero {
+        margin-top: 50px;
+      }
+
+      .panel {
+        margin: 32px 16px 55px;
+        padding: 20px;
+      }
+
+      .status {
+        font-size: 11px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">NEX<span>CRANK</span></div>
+    <div class="status">BIKE INTELLIGENCE</div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="tag">IL TUO ASSISTENTE PER LA BICI</div>
+      <h1>Capisci la tua bici.<br><span>Migliora ogni uscita.</span></h1>
+      <p class="subtitle">
+        Diagnosi, manutenzione e componenti: un unico spazio
+        per prenderti cura della tua bicicletta.
+      </p>
+    </section>
+
+    <section class="panel">
+      <label for="problem">Che problema ha la tua bici?</label>
+      <textarea id="problem" placeholder="Esempio: quando freno con il freno posteriore, sento un rumore metallico..."></textarea>
+
+      <div class="actions">
+        <button id="diagnose">Prepara la diagnosi</button>
+        <label class="upload" for="photo">📷 Scegli una foto</label>
+        <input id="photo" type="file" accept="image/*">
+        <img id="preview" style="display: none; max-width: 250px; border-radius: 12px; margin-top: 12px;">
+        <button type="button" id="removePhoto" style="display: none;">
+  Rimuovi foto
+</button>
+      </div>
+
+      <p id="fileName">Nessuna foto selezionata.</p>
+    </section>
+
+    <section class="features">
+      <article class="feature">
+        <div class="symbol">🔧</div>
+        <h2>Diagnosi intelligente</h2>
+        <p>Descrivi rumori, guasti e comportamenti insoliti della bici.</p>
+      </article>
+
+      <article class="feature">
+        <div class="symbol">⚙️</div>
+        <h2>Componenti compatibili</h2>
+        <p>Organizza le informazioni sui ricambi e sulla tua configurazione.</p>
+      </article>
+
+      <article class="feature">
+        <div class="symbol">🛠️</div>
+        <h2>Manutenzione guidata</h2>
+        <p>Preparati a controllare la bici con istruzioni ordinate e chiare.</p>
+      </article>
+    </section>
+  </main>
+
+  <footer>
+    NEXCRANK · Il tuo spazio dedicato alla bicicletta
+  </footer>
+
+  <script>
+    const problem = document.getElementById("problem");
+    const photo = document.getElementById("photo");
+    const fileName = document.getElementById("fileName");
+    const removePhoto = document.getElementById("removePhoto");
+let cronologia = [];
+photo.addEventListener("change", () => {
+  const immagine = photo.files[0];
+  const preview = document.getElementById("preview");
+
+  fileName.textContent = immagine
+    ? "Foto selezionata: " + immagine.name
+    : "Nessuna foto selezionata.";
+
+  if (immagine) {
+  preview.src = URL.createObjectURL(immagine);
+  preview.style.display = "block";
+  removePhoto.style.display = "block";
+} else {
+  preview.src = "";
+  preview.style.display = "none";
+  removePhoto.style.display = "none";
+}
+});
+removePhoto.addEventListener("click", () => {
+  photo.value = "";
+  preview.src = "";
+  preview.style.display = "none";
+  fileName.textContent = "Nessuna foto selezionata.";
+  removePhoto.style.display = "none";
+});
+
+  document.getElementById("diagnose").addEventListener("click", async () => {
+  const descrizione = problem.value.trim();
+  const immagine = photo.files[0];
+  if (immagine) {
+  const formatiValidi = ["image/jpeg", "image/png", "image/webp"];
+
+  if (!formatiValidi.includes(immagine.type)) {
+    alert("Formato non supportato. Usa JPG, PNG o WebP.");
+    photo.value = "";
+    return;
+  }
+}
+
+if (immagine && immagine.size > 5 * 1024 * 1024) {
+  alert("La foto è troppo grande. Massimo 5 MB.");
+  photo.value = "";
+  return;
+}
+let immagineBase64 = null;
+let tipoImmagine = null;
+
+if (immagine) {
+  immagineBase64 = await new Promise((resolve, reject) => {
+    const lettore = new FileReader();
+
+    lettore.onload = () => resolve(lettore.result.split(",")[1]);
+    lettore.onerror = reject;
+
+    lettore.readAsDataURL(immagine);
+  });
+
+  tipoImmagine = immagine.type;
+}
+
+  if (!descrizione) {
+    alert("Descrivi il problema della bicicletta.");
+    return;
+  }
+
+  const pulsante = document.getElementById("diagnose");
+  pulsante.disabled = true;
+  pulsante.textContent = "Analisi in corso...";
+
+  let risultato = document.getElementById("risultatoDiagnosi");
+
+  if (!risultato) {
+    risultato = document.createElement("div");
+    risultato.id = "risultatoDiagnosi";
+    risultato.style.whiteSpace = "pre-wrap";
+    risultato.style.marginTop = "20px";
+    risultato.style.padding = "16px";
+    risultato.style.borderRadius = "12px";
+    risultato.style.background = "#172033";
+    risultato.style.color = "#ffffff";
+    risultato.style.width = "100%";
+risultato.style.flex = "0 0 100%";
+risultato.style.boxSizing = "border-box";
+    pulsante.insertAdjacentElement("afterend", risultato);
+  }
+
+  risultato.textContent = "Nexcrank sta analizzando il problema...";
+
+  try {
+    const risposta = await fetch("/api/diagnosi", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+  problema: descrizione,
+  cronologia: cronologia,
+  immagine: immagineBase64,
+  tipoImmagine: tipoImmagine
+})
+    });
+
+    if (!risposta.ok) {
+      const errore = await risposta.text();
+      throw new Error(errore || "Errore durante la diagnosi.");
+    }
+
+    risultato.textContent = "";
+
+    const lettore = risposta.body.getReader();
+    const decodificatore = new TextDecoder();
+
+    while (true) {
+      const { value, done } = await lettore.read();
+      if (done) break;
+
+      risultato.textContent += decodificatore.decode(value, {
+        stream: true
+      });
+    }
+
+    risultato.textContent += decodificatore.decode();
+    cronologia.push({
+  ruolo: "user",
+  testo: descrizione
+});
+
+cronologia.push({
+  ruolo: "assistant",
+  testo: risultato.textContent
+});
+
+cronologia = cronologia.slice(-6);
+  } catch (errore) {
+    risultato.textContent =
+      "Non riesco a completare la diagnosi. Controlla il terminale di VS Code.";
+    console.error(errore);
+  } finally {
+    pulsante.disabled = false;
+    pulsante.textContent = "Diagnostica";
+  }
+});
+
+  </script>
+</body>
+</html>
