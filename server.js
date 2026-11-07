@@ -8,9 +8,11 @@ const nodemailer = require("nodemailer");
 const { OAuth2Client } = require("google-auth-library");
 const { GoogleGenAI } = require("@google/genai");
 
+const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.set("trust proxy", 1);
+app.use(cors());
 
 // Account utente locali: il file resta fuori da /public e contiene solo hash password.
 const DATA_DIR = path.join(__dirname, "data");
