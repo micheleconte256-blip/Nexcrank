@@ -10,17 +10,11 @@
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 
- <style>
-  * {
-    box-sizing: border-box;
-  }
-  .app-shell {
-    display: none;
-  }
-</style>
-.app-shell {
-  display: none;
-}
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
     :root {
       --background: #080d18;
       --surface: #101827;
@@ -29,23 +23,15 @@
       --text: #edf4ff;
       --muted: #91a1b7;
       --accent: #22d3ee;
-      /* Overlay Login a Tutto Schermo */
-  .login-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: #0b1120;
-    z-index: 9999;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
+    }
 
-  body.not-authenticated #app-container {
-    display: none;
-  }
+    /* Interfaccia nascosta finché l'accesso non è verificato */
+    .app-shell {
+      display: none;
+    }
+
+    body.autenticato .app-shell {
+      display: flex;
     }
 
     body {
@@ -119,7 +105,7 @@
     .guide-link:focus-visible { outline: 3px solid #a5f3fc; outline-offset: 3px; }
     .guide-link svg { width: 18px; height: 18px; flex: 0 0 18px; }
 
-    .app-shell { min-height: calc(100vh - 118px); display: flex; }
+    .app-shell { min-height: calc(100vh - 118px); }
     .sidebar {
       position: sticky;
       top: 68px;
@@ -2064,18 +2050,27 @@
         inviaMessaggio();
       }
     });
-    // Controlla lo stato con l'istanza globale di Firebase
-firebase.auth().onAuthStateChanged((user) => {
-  const appShell = document.querySelector('.app-shell');
-  if (!appShell) return;
+    // Verifica l'accesso: se non autenticato, vai alla pagina di accesso
+    (async function controllaAccesso() {
+      try {
+        const risposta = await fetch("/api/auth/me", {
+          cache: "no-store",
+          credentials: "same-origin"
+        });
 
-  if (user) {
-    appShell.style.display = 'block';
-  } else {
-    appShell.style.display = 'none';
-  }
-});
+        if (risposta.ok) {
+          const dati = await risposta.json();
+          if (dati && dati.utente) {
+            document.body.classList.add("autenticato");
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("Verifica accesso non riuscita.", err);
+      }
+
+      window.location.replace("accesso.html");
+    })();
   </script>
 </body>
 </html>
-
