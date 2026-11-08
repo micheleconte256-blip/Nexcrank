@@ -1116,22 +1116,17 @@
     function creaIdConversazione() {
       return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     }
-// Controllo stato autenticazione per il blocco a tutto schermo
+// Controllo stato autenticazione: blocca l'app se non sei loggato
 auth.onAuthStateChanged((user) => {
-  const loginModal = document.getElementById('login-modal'); // Assicurati che l'ID del box di login corrisponda
-  
-  if (!loginModal) return;
+  const appShell = document.querySelector('.app-shell');
+  if (!appShell) return;
 
   if (user) {
-    // Utente loggato: rimuove il blocco e mostra l'app
-    loginModal.classList.remove('login-overlay');
-    loginModal.style.display = 'none';
-    document.body.classList.remove('not-authenticated');
+    // Utente loggato: mostra l'applicazione
+    appShell.style.display = 'block';
   } else {
-    // Utente NON loggato: attiva il blocco a tutto schermo
-    loginModal.classList.add('login-overlay');
-    loginModal.style.display = 'flex';
-    document.body.classList.add('not-authenticated');
+    // Utente NON loggato: nasconde l'applicazione
+    appShell.style.display = 'none';
   }
 });
     async function aggiornaAccount() {
