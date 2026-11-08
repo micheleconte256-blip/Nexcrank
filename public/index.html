@@ -1120,14 +1120,18 @@
     }
 // Controllo stato autenticazione: blocca l'app se non sei loggato
 auth.onAuthStateChanged((user) => {
+  console.log("Stato auth ricevuto:", user);
   const appShell = document.querySelector('.app-shell');
-  if (!appShell) return;
+  if (!appShell) {
+    console.log("Attenzione: .app-shell non trovata!");
+    return;
+  }
 
   if (user) {
-    // Utente loggato: mostra l'applicazione
+    console.log("Utente autenticato! Mostro l'app.");
     appShell.style.display = 'block';
   } else {
-    // Utente NON loggato: nasconde l'applicazione
+    console.log("Utente non loggato. Tengo nascosta l'app.");
     appShell.style.display = 'none';
   }
 });
@@ -2072,6 +2076,17 @@ auth.onAuthStateChanged((user) => {
         inviaMessaggio();
       }
     });
+    // Controlla lo stato con l'istanza globale di Firebase
+firebase.auth().onAuthStateChanged((user) => {
+  const appShell = document.querySelector('.app-shell');
+  if (!appShell) return;
+
+  if (user) {
+    appShell.style.display = 'block';
+  } else {
+    appShell.style.display = 'none';
+  }
+});
   </script>
 </body>
 </html>
