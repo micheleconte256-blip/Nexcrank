@@ -1118,23 +1118,7 @@
     function creaIdConversazione() {
       return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     }
-// Controllo stato autenticazione: blocca l'app se non sei loggato
-auth.onAuthStateChanged((user) => {
-  console.log("Stato auth ricevuto:", user);
-  const appShell = document.querySelector('.app-shell');
-  if (!appShell) {
-    console.log("Attenzione: .app-shell non trovata!");
-    return;
-  }
 
-  if (user) {
-    console.log("Utente autenticato! Mostro l'app.");
-    appShell.style.display = 'block';
-  } else {
-    console.log("Utente non loggato. Tengo nascosta l'app.");
-    appShell.style.display = 'none';
-  }
-});
     async function aggiornaAccount() {
       try {
         const risposta = await fetch("/api/auth/me", { cache: "no-store" });
