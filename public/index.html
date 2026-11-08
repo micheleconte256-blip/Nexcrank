@@ -23,6 +23,23 @@
       --text: #edf4ff;
       --muted: #91a1b7;
       --accent: #22d3ee;
+      /* Overlay Login a Tutto Schermo */
+  .login-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #0b1120;
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  body.not-authenticated #app-container {
+    display: none;
+  }
     }
 
     body {
@@ -1099,7 +1116,24 @@
     function creaIdConversazione() {
       return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     }
+// Controllo stato autenticazione per il blocco a tutto schermo
+auth.onAuthStateChanged((user) => {
+  const loginModal = document.getElementById('login-modal'); // Assicurati che l'ID del box di login corrisponda
+  
+  if (!loginModal) return;
 
+  if (user) {
+    // Utente loggato: rimuove il blocco e mostra l'app
+    loginModal.classList.remove('login-overlay');
+    loginModal.style.display = 'none';
+    document.body.classList.remove('not-authenticated');
+  } else {
+    // Utente NON loggato: attiva il blocco a tutto schermo
+    loginModal.classList.add('login-overlay');
+    loginModal.style.display = 'flex';
+    document.body.classList.add('not-authenticated');
+  }
+});
     async function aggiornaAccount() {
       try {
         const risposta = await fetch("/api/auth/me", { cache: "no-store" });
