@@ -3,7 +3,8 @@ require("dotenv").config();
 const express = require("express");
 const path = require("path");
 const cors = require("cors");
-const admin = require("firebase-admin");
+const { initializeApp, cert, applicationDefault } = require("firebase-admin/app");
+const { getAuth } = require("firebase-admin/auth");
 const { GoogleGenAI } = require("@google/genai");
 
 const app = express();
@@ -14,31 +15,72 @@ app.disable("x-powered-by");
 // ---------------------------------------------------------------------------
 // FIREBASE ADMIN (fail-closed: senza credenziali valide il server NON parte)
 // ---------------------------------------------------------------------------
-// Fornisci UNA di queste opzioni nel file .env:
+// Fornisci UNA di queste opzioni (su Render: Environment, oppure nel file .env):
 //  - FIREBASE_SERVICE_ACCOUNT: JSON del service account (oppure il JSON in base64)
 //  - GOOGLE_APPLICATION_CREDENTIALS: percorso del file JSON del service account
-function inizializzaFirebase() {
-  const grezzo = String(process.env.FIREBASE_SERVICE_ACCOUNT || "").trim();
-  let credenziale;
+function leggiServiceAccount() {
+  let raw = String(process.env.FIREBASE_SERVICE_ACCOUNT || "").trim();
+  if (!raw) return null;
 
-  if (grezzo) {
-    const json = grezzo.startsWith("{")
-      ? grezzo
-      : Buffer.from(grezzo, "base64").toString("utf8");
-    const account = JSON.parse(json);
-    if (typeof account.private_key === "string") {
-      account.private_key = account.private_key.replace(/\\n/g, "\n");
+  // Supporta anche il JSON codificato in base64
+  if (!raw.startsWith("{") && !raw.startsWith('"')) {
+    try {
+      raw = Buffer.from(raw, "base64").toString("utf8").trim();
+    } catch {
+      /* si prosegue con il valore originale */
     }
-    credenziale = admin.credential.cert(account);
-  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    credenziale = admin.credential.applicationDefault();
-  } else {
-    throw new Error(
-      "Imposta FIREBASE_SERVICE_ACCOUNT oppure GOOGLE_APPLICATION_CREDENTIALS nel file .env."
-    );
   }
 
-  admin.initializeApp({ credential: credenziale });
+  const analizza = testo => JSON.parse(testo);
+  let account;
+  try {
+    account = analizza(raw);
+  } catch {
+    // Ritorni a capo reali dentro private_key (incollati su più righe):
+    // si trasformano in \n escapati e si riprova.
+    const riparato = raw.replace(
+      /("private_key"\s*:\s*")([\s\S]*?)("\s*[,}])/,
+      (_, a, chiave, c) => a + chiave.replace(/\r?\n/g, "\\n") + c
+    );
+    try {
+      account = analizza(riparato);
+    } catch {
+      throw new Error("FIREBASE_SERVICE_ACCOUNT non è un JSON valido.");
+    }
+  }
+
+  // JSON racchiuso tra virgolette (doppia serializzazione)
+  if (typeof account === "string") account = analizza(account);
+
+  if (!account || typeof account !== "object") {
+    throw new Error("FIREBASE_SERVICE_ACCOUNT non contiene un oggetto valido.");
+  }
+
+  // Normalizza i "\n" letterali della chiave privata in veri a capo
+  if (typeof account.private_key === "string") {
+    account.private_key = account.private_key.replace(/\\n/g, "\n");
+  }
+
+  for (const campo of ["project_id", "client_email", "private_key"]) {
+    if (!account[campo]) {
+      throw new Error(`FIREBASE_SERVICE_ACCOUNT: campo "${campo}" mancante.`);
+    }
+  }
+  return account;
+}
+
+function inizializzaFirebase() {
+  const account = leggiServiceAccount();
+
+  if (account) {
+    initializeApp({ credential: cert(account) });
+  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    initializeApp({ credential: applicationDefault() });
+  } else {
+    throw new Error(
+      "Imposta FIREBASE_SERVICE_ACCOUNT oppure GOOGLE_APPLICATION_CREDENTIALS."
+    );
+  }
 }
 
 try {
@@ -162,7 +204,7 @@ async function richiediAutenticazione(req, res, next) {
 
   let token;
   try {
-    token = await admin.auth().verifyIdToken(corrispondenza[1], true);
+    token = await getAuth().verifyIdToken(corrispondenza[1], true);
   } catch (errore) {
     const codice = String(errore?.code || "");
     if (codice === "auth/user-disabled") {
