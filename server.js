@@ -2,401 +2,208 @@ require("dotenv").config();
 
 const express = require("express");
 const path = require("path");
-const fs = require("fs");
-const crypto = require("crypto");
-const nodemailer = require("nodemailer");
-const { OAuth2Client } = require("google-auth-library");
+const cors = require("cors");
+const admin = require("firebase-admin");
 const { GoogleGenAI } = require("@google/genai");
 
-const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.set("trust proxy", 1);
-app.use(cors());
+app.disable("x-powered-by");
 
-// Account utente locali: il file resta fuori da /public e contiene solo hash password.
-const DATA_DIR = path.join(__dirname, "data");
-const ACCOUNT_FILE = path.join(DATA_DIR, "users.json");
-fs.mkdirSync(DATA_DIR, { recursive: true });
-if (!fs.existsSync(ACCOUNT_FILE)) fs.writeFileSync(ACCOUNT_FILE, "[]", { mode: 0o600 });
-let utenti = JSON.parse(fs.readFileSync(ACCOUNT_FILE, "utf8"));
-if (!Array.isArray(utenti)) throw new Error("Archivio utenti non valido.");
+// ---------------------------------------------------------------------------
+// FIREBASE ADMIN (fail-closed: senza credenziali valide il server NON parte)
+// ---------------------------------------------------------------------------
+// Fornisci UNA di queste opzioni nel file .env:
+//  - FIREBASE_SERVICE_ACCOUNT: JSON del service account (oppure il JSON in base64)
+//  - GOOGLE_APPLICATION_CREDENTIALS: percorso del file JSON del service account
+function inizializzaFirebase() {
+  const grezzo = String(process.env.FIREBASE_SERVICE_ACCOUNT || "").trim();
+  let credenziale;
 
-const SESSION_COOKIE = "nexcrank_session";
-const DURATA_SESSIONE_MS = 30 * 24 * 60 * 60 * 1000;
-const sessioni = new Map();
-const tentativiAuth = new Map();
-const salePasswordFittizio = crypto.randomBytes(16);
-const clientGoogleAuth = new OAuth2Client();
+  if (grezzo) {
+    const json = grezzo.startsWith("{")
+      ? grezzo
+      : Buffer.from(grezzo, "base64").toString("utf8");
+    const account = JSON.parse(json);
+    if (typeof account.private_key === "string") {
+      account.private_key = account.private_key.replace(/\\n/g, "\n");
+    }
+    credenziale = admin.credential.cert(account);
+  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    credenziale = admin.credential.applicationDefault();
+  } else {
+    throw new Error(
+      "Imposta FIREBASE_SERVICE_ACCOUNT oppure GOOGLE_APPLICATION_CREDENTIALS nel file .env."
+    );
+  }
 
-function salvaUtenti() {
-  const temporaneo = `${ACCOUNT_FILE}.tmp`;
-  fs.writeFileSync(temporaneo, JSON.stringify(utenti, null, 2), { mode: 0o600 });
-  fs.renameSync(temporaneo, ACCOUNT_FILE);
+  admin.initializeApp({ credential: credenziale });
 }
 
-function limitaTentativiAuth(req, res, next) {
-  const ora = Date.now();
-  const ip = req.ip || req.socket.remoteAddress || "sconosciuto";
-  let tentativo = tentativiAuth.get(ip);
-  if (!tentativo || ora - tentativo.inizio >= 15 * 60 * 1000) tentativo = { inizio: ora, conteggio: 0 };
-  tentativo.conteggio++;
-  tentativiAuth.set(ip, tentativo);
-  if (tentativiAuth.size > 10000) {
-    for (const [chiave, valore] of tentativiAuth) {
-      if (ora - valore.inizio >= 15 * 60 * 1000) tentativiAuth.delete(chiave);
-    }
-  }
-  if (tentativo.conteggio > 8) {
-    res.setHeader("Retry-After", "900");
-    return res.status(429).json({ errore: "Troppi tentativi. Riprova tra 15 minuti." });
+try {
+  inizializzaFirebase();
+} catch (errore) {
+  console.error("Nexcrank: Firebase Admin non inizializzato, avvio annullato:", errore.message);
+  process.exit(1);
+}
+
+// ---------------------------------------------------------------------------
+// SICUREZZA DI BASE: header, CORS
+// ---------------------------------------------------------------------------
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  if (req.secure) {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
   next();
-}
+});
 
-function cookieDaRichiesta(req, nome) {
-  const prefisso = `${nome}=`;
-  for (const coppia of String(req.headers.cookie || "").split(";")) {
-    const voce = coppia.trim();
-    if (voce.startsWith(prefisso)) return decodeURIComponent(voce.slice(prefisso.length));
-  }
-  return "";
-}
+// Elenco di origini autorizzate, separate da virgola. Esempio:
+// ALLOWED_ORIGINS=https://tuodominio.it,http://localhost:3000
+const originiConsentite = String(process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map(o => o.trim().replace(/\/+$/, ""))
+  .filter(Boolean);
 
-function hashToken(token) {
-  return crypto.createHash("sha256").update(token).digest("hex");
-}
+app.use(cors({
+  origin(origin, callback) {
+    // Richieste senza Origin (stessa origine, curl, ecc.): l'accesso alle rotte
+    // riservate richiede comunque un token Firebase valido.
+    if (!origin) return callback(null, true);
+    return callback(null, originiConsentite.includes(origin));
+  },
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  maxAge: 600
+}));
 
-function impostaCookieSessione(req, res, token, maxAge) {
-  const secure = req.secure ? "; Secure" : "";
-  res.setHeader("Set-Cookie", `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`);
-}
+app.use(express.static(path.join(__dirname, "public"), { dotfiles: "ignore" }));
 
-function creaSessione(req, res, utente) {
-  const token = crypto.randomBytes(32).toString("base64url");
-  const scadenza = Date.now() + DURATA_SESSIONE_MS;
-  sessioni.set(hashToken(token), { utenteId: utente.id, scadenza });
-  impostaCookieSessione(req, res, token, Math.floor(DURATA_SESSIONE_MS / 1000));
-}
+// ---------------------------------------------------------------------------
+// RATE LIMIT (in memoria; con più processi va sostituito con uno store condiviso)
+// ---------------------------------------------------------------------------
+function creaLimitatore({ finestraMs, massimo, chiave, messaggio }) {
+  const registro = new Map();
 
-function utenteDaSessione(req) {
-  const token = cookieDaRichiesta(req, SESSION_COOKIE);
-  if (!token) return null;
-  const chiave = hashToken(token);
-  const sessione = sessioni.get(chiave);
-  if (!sessione || sessione.scadenza <= Date.now()) {
-    sessioni.delete(chiave);
-    return null;
-  }
-  return utenti.find(u => u.id === sessione.utenteId) || null;
-}
+  setInterval(() => {
+    const ora = Date.now();
+    for (const [k, v] of registro) {
+      if (ora - v.inizio >= finestraMs) registro.delete(k);
+    }
+  }, Math.min(finestraMs, 60 * 1000)).unref();
 
-function hashPassword(password, salt) {
-  return crypto.scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
-}
+  return (req, res, next) => {
+    const ora = Date.now();
+    const id = chiave(req);
+    let record = registro.get(id);
 
-function rispostaUtente(utente) {
-  return { id: utente.id, email: utente.email, creatoIl: utente.creatoIl };
-}
+    if (!record || ora - record.inizio >= finestraMs) {
+      record = { inizio: ora, conteggio: 0 };
+    }
+    record.conteggio += 1;
+    registro.set(id, record);
 
-function creaTrasportoEmail() {
-  const user = String(process.env.SMTP_USER || "").trim();
-  const pass = String(process.env.SMTP_PASS || "").replace(/\s/g, "");
-  if (!user || !pass) return null;
-  const port = Number(process.env.SMTP_PORT || 465);
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "smtp.gmail.com",
-    port,
-    secure: String(process.env.SMTP_SECURE || "true").toLowerCase() === "true",
-    auth: { user, pass }
-  });
-}
+    res.setHeader("RateLimit-Limit", String(massimo));
+    res.setHeader("RateLimit-Remaining", String(Math.max(0, massimo - record.conteggio)));
 
-function urlBaseApp() {
-  const base = String(process.env.APP_BASE_URL || "").trim().replace(/\/+$/, "");
-  if (!base) return null;
-  try {
-    const parsed = new URL(base);
-    if (parsed.protocol !== "https:" && parsed.hostname !== "localhost" && parsed.hostname !== "127.0.0.1") return null;
-    return parsed.origin;
-  } catch {
-    return null;
-  }
-}
-
-app.use(express.json({ limit: "18mb" }));
-app.use(express.static(path.join(__dirname, "public")));
-
-app.post("/api/auth/register", limitaTentativiAuth, (req, res) => {
-  res.setHeader("Cache-Control", "no-store");
-  const email = String(req.body.email || "").trim().toLowerCase();
-  const password = String(req.body.password || "");
-  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return res.status(400).json({ errore: "Inserisci un indirizzo email valido." });
-  }
-  if (password.length < 10 || password.length > 128) {
-    return res.status(400).json({ errore: "La password deve contenere da 10 a 128 caratteri." });
-  }
-  if (utenti.some(u => u.email === email)) {
-    return res.status(409).json({ errore: "Esiste già un account con questa email. Prova ad accedere." });
-  }
-  const salt = crypto.randomBytes(16);
-  const utente = {
-    id: crypto.randomUUID(),
-    email,
-    sale: salt.toString("hex"),
-    hash: hashPassword(password, salt).toString("hex"),
-    creatoIl: new Date().toISOString()
+    if (record.conteggio > massimo) {
+      const retryDopo = Math.ceil((record.inizio + finestraMs - ora) / 1000);
+      res.setHeader("Retry-After", String(Math.max(1, retryDopo)));
+      return res.status(429).json({ errore: messaggio });
+    }
+    next();
   };
-  utenti.push(utente);
+}
+
+const ipRichiesta = req => req.ip || req.socket.remoteAddress || "sconosciuto";
+
+// Prima dell'autenticazione: protegge dai tentativi ripetuti con token fittizi.
+const limitaPerIp = creaLimitatore({
+  finestraMs: 15 * 60 * 1000,
+  massimo: 120,
+  chiave: ipRichiesta,
+  messaggio: "Troppe richieste. Riprova tra qualche minuto."
+});
+
+// Dopo l'autenticazione: limite per singolo utente (protegge i costi Gemini).
+const limitaDiagnosiPerUtente = creaLimitatore({
+  finestraMs: 15 * 60 * 1000,
+  massimo: 20,
+  chiave: req => `uid:${req.utente.uid}`,
+  messaggio: "Hai inviato troppe richieste. Riprova tra qualche minuto."
+});
+
+// ---------------------------------------------------------------------------
+// AUTENTICAZIONE FIREBASE
+// ---------------------------------------------------------------------------
+function rifiuta(res, stato, errore) {
+  res.setHeader("Cache-Control", "no-store");
+  if (stato === 401) res.setHeader("WWW-Authenticate", 'Bearer realm="nexcrank"');
+  return res.status(stato).json({ errore });
+}
+
+/**
+ * Consente l'accesso SOLO con un ID token Firebase valido:
+ *  - firma, scadenza, issuer e audience verificati da verifyIdToken;
+ *  - token non revocato (checkRevoked) e utente esistente e non disabilitato;
+ *  - email presente e verificata, account non anonimo.
+ * Qualsiasi anomalia produce 401 (credenziali assenti/non valide) o 403 (non autorizzato).
+ */
+async function richiediAutenticazione(req, res, next) {
+  const intestazione = String(req.headers.authorization || "");
+  const corrispondenza = /^Bearer\s+([A-Za-z0-9\-_.]+)$/.exec(intestazione);
+  if (!corrispondenza || corrispondenza[1].length > 4096) {
+    return rifiuta(res, 401, "Autenticazione richiesta.");
+  }
+
+  let token;
   try {
-    salvaUtenti();
+    token = await admin.auth().verifyIdToken(corrispondenza[1], true);
   } catch (errore) {
-    utenti = utenti.filter(u => u.id !== utente.id);
-    console.error("Nexcrank: impossibile salvare il nuovo account.", errore.message);
-    return res.status(500).json({ errore: "Non sono riuscito a creare l'account. Riprova." });
-  }
-  creaSessione(req, res, utente);
-  return res.status(201).json({ utente: rispostaUtente(utente) });
-});
-
-app.post("/api/auth/login", limitaTentativiAuth, (req, res) => {
-  res.setHeader("Cache-Control", "no-store");
-  const email = String(req.body.email || "").trim().toLowerCase();
-  const password = String(req.body.password || "");
-  if (!email || password.length > 128) return res.status(400).json({ errore: "Controlla email e password." });
-  const utente = utenti.find(u => u.email === email);
-  const sale = utente ? Buffer.from(utente.sale, "hex") : salePasswordFittizio;
-  const hashInserito = hashPassword(password, sale);
-  const hashSalvato = utente ? Buffer.from(utente.hash, "hex") : Buffer.alloc(64);
-  const corretto = hashSalvato.length === hashInserito.length && crypto.timingSafeEqual(hashInserito, hashSalvato);
-  if (!utente || !corretto) return res.status(401).json({ errore: "Email o password non corretti." });
-  creaSessione(req, res, utente);
-  return res.json({ utente: rispostaUtente(utente) });
-});
-
-app.get("/api/auth/google-config", (req, res) => {
-  res.setHeader("Cache-Control", "no-store");
-  return res.json({ clientId: String(process.env.GOOGLE_CLIENT_ID || "").trim() });
-});
-
-app.post("/api/auth/google", limitaTentativiAuth, async (req, res) => {
-  res.setHeader("Cache-Control", "no-store");
-  const clientId = String(process.env.GOOGLE_CLIENT_ID || "").trim();
-  const credential = String(req.body.credential || "");
-  if (!clientId) return res.status(503).json({ errore: "Accesso Google non configurato: aggiungi GOOGLE_CLIENT_ID nel file .env." });
-  if (!credential || credential.length > 20000) return res.status(400).json({ errore: "Credenziale Google mancante o non valida." });
-
-  let payload;
-  try {
-    const ticket = await clientGoogleAuth.verifyIdToken({ idToken: credential, audience: clientId });
-    payload = ticket.getPayload();
-  } catch (errore) {
-    console.warn("Nexcrank: verifica token Google non riuscita.", errore.message);
-    return res.status(401).json({ errore: "Non riesco a verificare l’accesso Google. Riprova." });
-  }
-
-  const googleSub = String(payload?.sub || "");
-  const email = String(payload?.email || "").trim().toLowerCase();
-  if (!googleSub || !email || payload.email_verified !== true) {
-    return res.status(401).json({ errore: "Google non ha confermato l’indirizzo email. Usa l’accesso con email e password." });
-  }
-
-  let utente = utenti.find(u => u.googleSub === googleSub);
-  if (!utente) {
-    const accountEmail = utenti.find(u => u.email === email);
-    if (accountEmail) {
-      const password = String(req.body.password || "");
-      if (!password) {
-        return res.status(409).json({ collegaAccount: true, errore: "Esiste già un account Nexcrank con questa email. Inserisci la password Nexcrank per collegarlo a Google." });
-      }
-      if (!accountEmail.sale || !accountEmail.hash || password.length > 128) {
-        return res.status(401).json({ errore: "Password Nexcrank non corretta." });
-      }
-      const hashInserito = hashPassword(password, Buffer.from(accountEmail.sale, "hex"));
-      const hashSalvato = Buffer.from(accountEmail.hash, "hex");
-      const corretto = hashSalvato.length === hashInserito.length && crypto.timingSafeEqual(hashInserito, hashSalvato);
-      if (!corretto) return res.status(401).json({ errore: "Password Nexcrank non corretta." });
-
-      accountEmail.googleSub = googleSub;
-      try {
-        salvaUtenti();
-      } catch (errore) {
-        delete accountEmail.googleSub;
-        console.error("Nexcrank: impossibile collegare l’account Google.", errore.message);
-        return res.status(500).json({ errore: "Non riesco a collegare l’account Google. Riprova." });
-      }
-      utente = accountEmail;
-    } else {
-      const sale = crypto.randomBytes(16);
-      const passwordCasuale = crypto.randomBytes(48).toString("base64url");
-      utente = {
-        id: crypto.randomUUID(),
-        email,
-        sale: sale.toString("hex"),
-        hash: hashPassword(passwordCasuale, sale).toString("hex"),
-        googleSub,
-        creatoIl: new Date().toISOString()
-      };
-      utenti.push(utente);
-      try {
-        salvaUtenti();
-      } catch (errore) {
-        utenti = utenti.filter(u => u.id !== utente.id);
-        console.error("Nexcrank: impossibile salvare il nuovo account Google.", errore.message);
-        return res.status(500).json({ errore: "Non riesco a creare l’account Google. Riprova." });
-      }
+    const codice = String(errore?.code || "");
+    if (codice === "auth/user-disabled") {
+      return rifiuta(res, 403, "Account disabilitato.");
     }
-  }
-
-  creaSessione(req, res, utente);
-  return res.json({ utente: rispostaUtente(utente) });
-});
-
-app.get("/api/auth/me", (req, res) => {
-  res.setHeader("Cache-Control", "no-store");
-  const utente = utenteDaSessione(req);
-  if (!utente) return res.status(401).json({ utente: null });
-  return res.json({ utente: rispostaUtente(utente) });
-});
-
-app.post("/api/auth/logout", (req, res) => {
-  res.setHeader("Cache-Control", "no-store");
-  const token = cookieDaRichiesta(req, SESSION_COOKIE);
-  if (token) sessioni.delete(hashToken(token));
-  impostaCookieSessione(req, res, "", 0);
-  return res.json({ ok: true });
-});
-
-app.post("/api/auth/forgot-password", limitaTentativiAuth, (req, res) => {
-  res.setHeader("Cache-Control", "no-store");
-  const trasporto = creaTrasportoEmail();
-  const baseApp = urlBaseApp();
-  if (!trasporto || !baseApp) {
-    return res.status(503).json({ errore: "Recupero password non configurato: controlla le impostazioni email nel file .env." });
-  }
-
-  const email = String(req.body.email || "").trim().toLowerCase();
-  const rispostaGenerica = { messaggio: "Se l’indirizzo appartiene a un account, riceverai un link per reimpostare la password." };
-  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.json(rispostaGenerica);
-
-  const utente = utenti.find(u => u.email === email);
-  if (!utente) return res.json(rispostaGenerica);
-
-  const token = crypto.randomBytes(32).toString("base64url");
-  const tokenHash = hashToken(token);
-  const scadenza = Date.now() + 30 * 60 * 1000;
-  utente.tokenRecuperoHash = tokenHash;
-  utente.tokenRecuperoScadenza = scadenza;
-  try {
-    salvaUtenti();
-  } catch (errore) {
-    delete utente.tokenRecuperoHash;
-    delete utente.tokenRecuperoScadenza;
-    console.error("Nexcrank: impossibile salvare il token di recupero.", errore.message);
-    return res.status(500).json({ errore: "Non riesco a preparare il recupero. Riprova." });
-  }
-
-  const link = `${baseApp}/reset-password.html?token=${encodeURIComponent(token)}`;
-  const mittente = String(process.env.SMTP_FROM || process.env.SMTP_USER).trim();
-  trasporto.sendMail({
-    from: mittente,
-    to: utente.email,
-    subject: "Reimposta la password di Nexcrank",
-    text: `Hai richiesto di reimpostare la password Nexcrank. Apri questo link entro 30 minuti:\n\n${link}\n\nSe non hai richiesto tu il recupero, ignora questa email.`,
-    html: `<p>Hai richiesto di reimpostare la password Nexcrank.</p><p><a href="${link}">Scegli una nuova password</a></p><p>Il link scade tra 30 minuti ed è utilizzabile una sola volta.</p><p>Se non hai richiesto tu il recupero, ignora questa email.</p>`
-  }).catch(errore => {
-    if (utente.tokenRecuperoHash === tokenHash) {
-      delete utente.tokenRecuperoHash;
-      delete utente.tokenRecuperoScadenza;
-      try { salvaUtenti(); } catch (erroreSalvataggio) {
-        console.error("Nexcrank: impossibile annullare un token non inviato.", erroreSalvataggio.message);
-      }
+    if (codice.startsWith("auth/")) {
+      // Token scaduto, revocato, malformato, firmato male, utente inesistente...
+      return rifiuta(res, 401, "Sessione non valida o scaduta. Accedi di nuovo.");
     }
-    console.error("Nexcrank: invio email recupero non riuscito.", errore.message);
-  });
-
-  return res.json(rispostaGenerica);
-});
-
-app.post("/api/auth/reset-password", limitaTentativiAuth, (req, res) => {
-  res.setHeader("Cache-Control", "no-store");
-  const token = String(req.body.token || "");
-  const password = String(req.body.password || "");
-  if (!token || token.length > 128) return res.status(400).json({ errore: "Il link non è valido o è scaduto. Richiedine uno nuovo." });
-  if (password.length < 10 || password.length > 128) {
-    return res.status(400).json({ errore: "La password deve contenere da 10 a 128 caratteri." });
+    // Problema infrastrutturale: si nega comunque l'accesso (fail-closed).
+    console.error("Nexcrank: verifica token Firebase non riuscita:", errore?.message);
+    return rifiuta(res, 503, "Servizio di autenticazione temporaneamente non disponibile.");
   }
 
-  const tokenHash = hashToken(token);
-  const utente = utenti.find(u => u.tokenRecuperoHash === tokenHash && Number(u.tokenRecuperoScadenza) > Date.now());
-  if (!utente) return res.status(400).json({ errore: "Il link non è valido o è scaduto. Richiedine uno nuovo." });
-
-  const salt = crypto.randomBytes(16);
-  const vecchioSale = utente.sale;
-  const vecchioHash = utente.hash;
-  delete utente.tokenRecuperoHash;
-  delete utente.tokenRecuperoScadenza;
-  utente.sale = salt.toString("hex");
-  utente.hash = hashPassword(password, salt).toString("hex");
-  try {
-    salvaUtenti();
-  } catch (errore) {
-    utente.sale = vecchioSale;
-    utente.hash = vecchioHash;
-    console.error("Nexcrank: impossibile salvare la nuova password.", errore.message);
-    return res.status(500).json({ errore: "Non riesco a salvare la nuova password. Riprova." });
+  if (!token.uid || !token.email) {
+    return rifiuta(res, 403, "Account senza email: accesso non consentito.");
+  }
+  if (token.firebase?.sign_in_provider === "anonymous") {
+    return rifiuta(res, 403, "Gli account anonimi non sono ammessi.");
+  }
+  if (token.email_verified !== true) {
+    return rifiuta(res, 403, "Verifica il tuo indirizzo email prima di continuare.");
   }
 
-  for (const [chiave, sessione] of sessioni) {
-    if (sessione.utenteId === utente.id) sessioni.delete(chiave);
-  }
-  return res.json({ ok: true });
-});
-
-// Limite essenziale per IP, senza dipendenze aggiuntive.
-// In distribuzioni con più processi va sostituito con uno store condiviso.
-const FINESTRA_RATE_LIMIT_MS = 15 * 60 * 1000;
-const MASSIMO_RICHIESTE_PER_FINESTRA = 20;
-const richiestePerIp = new Map();
-
-function limitaRichiesteDiagnosi(req, res, next) {
-  const ora = Date.now();
-  const ip = req.ip || req.socket.remoteAddress || "sconosciuto";
-  let record = richiestePerIp.get(ip);
-
-  if (!record || ora - record.inizio >= FINESTRA_RATE_LIMIT_MS) {
-    record = { inizio: ora, conteggio: 0 };
-  }
-
-  record.conteggio += 1;
-  richiestePerIp.set(ip, record);
-
-  if (richiestePerIp.size > 10000) {
-    for (const [chiave, valore] of richiestePerIp) {
-      if (ora - valore.inizio >= FINESTRA_RATE_LIMIT_MS) richiestePerIp.delete(chiave);
-    }
-  }
-
-  res.setHeader("RateLimit-Limit", String(MASSIMO_RICHIESTE_PER_FINESTRA));
-  res.setHeader("RateLimit-Remaining", String(Math.max(0, MASSIMO_RICHIESTE_PER_FINESTRA - record.conteggio)));
-
-  if (record.conteggio > MASSIMO_RICHIESTE_PER_FINESTRA) {
-    const retryDopo = Math.ceil((record.inizio + FINESTRA_RATE_LIMIT_MS - ora) / 1000);
-    res.setHeader("Retry-After", String(Math.max(1, retryDopo)));
-    return res.status(429).json({ errore: "Hai inviato troppe richieste. Riprova tra qualche minuto." });
-  }
-
+  req.utente = { uid: token.uid, email: String(token.email).toLowerCase() };
   next();
 }
 
+// Utile al frontend per controllare la sessione.
+app.get("/api/auth/me", limitaPerIp, richiediAutenticazione, (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  return res.json({ utente: req.utente });
+});
+
+// ---------------------------------------------------------------------------
+// GEMINI
+// ---------------------------------------------------------------------------
 const ai = process.env.GEMINI_API_KEY
   ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
   : null;
 
-// ---------------------------------------------------------------------------
-// CONFIGURAZIONE RETRY / FALLBACK
-// ---------------------------------------------------------------------------
 // Nota: i modelli gemini-1.5-* e gemini-2.0-* sono stati dismessi (404 Not Found).
 const MODELLO_PRINCIPALE =
   process.env.GEMINI_MODEL_PRIMARY || "gemini-3.5-flash-lite";
@@ -650,165 +457,167 @@ Fornire risposte utili, comprensibili e pratiche, guidando l'utente passo-passo 
 sempre con una formattazione Markdown pulita, strutturata e facile da leggere.
 `;
 
-app.post("/api/diagnosi", limitaRichiesteDiagnosi, async (req, res) => {
-  const controller = new AbortController();
-  res.on("close", () => {
-    if (!res.writableEnded) controller.abort();
-  });
+// ---------------------------------------------------------------------------
+// ROTTA PROTETTA: DIAGNOSI
+// Ordine: limite per IP -> autenticazione Firebase -> limite per utente -> parsing JSON.
+// Il body (fino a 18 MB) viene letto solo DOPO la verifica del token.
+// ---------------------------------------------------------------------------
+const TIPI_IMMAGINE_CONSENTITI = ["image/jpeg", "image/png", "image/webp"];
+const MAX_IMMAGINE = 8 * 1024 * 1024;
 
-  try {
-    if (!ai) {
-      return res.status(500).json({
-        errore: "Chiave Gemini non configurata sul server."
-      });
-    }
-
-    const problema = String(req.body.problema || "").trim();
-    const immagine = req.body.immagine || null;
-    const tipoImmagine = req.body.tipoImmagine || null;
-
-    if (!problema) {
-      return res.status(400).json({
-        errore: "Scrivi un messaggio prima di inviarlo."
-      });
-    }
-
-    if (problema.length > 5000) {
-      return res.status(400).json({
-        errore: "Il messaggio è troppo lungo."
-      });
-    }
-
-    if (immagine && !tipoImmagine) {
-      return res.status(400).json({
-        errore: "Formato dell'immagine non specificato."
-      });
-    }
-
-    if (immagine) {
-      const tipiConsentiti = [
-        "image/jpeg",
-        "image/png",
-        "image/webp"
-      ];
-
-      if (!tipiConsentiti.includes(tipoImmagine)) {
-        return res.status(400).json({
-          errore: "Formato immagine non supportato."
-        });
-      }
-
-      if (
-        typeof immagine !== "string" ||
-        immagine.length > 8 * 1024 * 1024
-      ) {
-        return res.status(400).json({
-          errore: "Immagine troppo grande."
-        });
-      }
-    }
-
-    const cronologia = Array.isArray(req.body.cronologia)
-      ? req.body.cronologia.slice(-10)
-      : [];
-
-    const messaggi = cronologia
-      .filter(m =>
-        m &&
-        (m.ruolo === "user" || m.ruolo === "assistant") &&
-        typeof m.testo === "string"
-      )
-      .map(m => {
-        const parts = [{ text: m.testo.slice(0, 2000) }];
-        const tipiConsentiti = ["image/jpeg", "image/png", "image/webp"];
-
-        if (
-          m.ruolo === "user" &&
-          typeof m.immagine === "string" &&
-          m.immagine.length <= 8 * 1024 * 1024 &&
-          tipiConsentiti.includes(m.tipoImmagine)
-        ) {
-          parts.push({ inlineData: { mimeType: m.tipoImmagine, data: m.immagine } });
-        }
-
-        return {
-          role: m.ruolo === "assistant" ? "model" : "user",
-          parts
-        };
-      });
-
-    const partiNuovoMessaggio = [{ text: problema }];
-
-    if (immagine) {
-      partiNuovoMessaggio.push({
-        inlineData: {
-          mimeType: tipoImmagine,
-          data: immagine
-        }
-      });
-    }
-
-    messaggi.push({
-      role: "user",
-      parts: partiNuovoMessaggio
+app.post(
+  "/api/diagnosi",
+  limitaPerIp,
+  richiediAutenticazione,
+  limitaDiagnosiPerUtente,
+  express.json({ limit: "18mb" }),
+  async (req, res) => {
+    const controller = new AbortController();
+    res.on("close", () => {
+      if (!res.writableEnded) controller.abort();
     });
 
-    res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("X-Content-Type-Options", "nosniff");
+    try {
+      if (!ai) {
+        return res.status(500).json({
+          errore: "Chiave Gemini non configurata sul server."
+        });
+      }
 
-    console.log(`Nexcrank: richiesta inviata a Gemini (${MODELLO_PRINCIPALE})...`);
+      const corpo = req.body && typeof req.body === "object" ? req.body : {};
+      const problema = String(corpo.problema || "").trim();
+      const immagine = corpo.immagine || null;
+      const tipoImmagine = corpo.tipoImmagine || null;
 
-    // 1) Modello principale con retry ed exponential backoff
-    let esito = await generaConModello(MODELLO_PRINCIPALE, messaggi, res, controller.signal);
-    if (esito.annullata || res.destroyed || res.writableEnded) return;
+      if (!problema) {
+        return res.status(400).json({ errore: "Scrivi un messaggio prima di inviarlo." });
+      }
 
-    // 2) Fallback sul modello secondario (solo se non è già partito testo)
-    if (!esito.ok && !esito.haScritto) {
-      console.warn(
-        `Nexcrank: ${MODELLO_PRINCIPALE} non disponibile, passo a ${MODELLO_FALLBACK}.`
-      );
-      esito = await generaConModello(MODELLO_FALLBACK, messaggi, res, controller.signal);
+      if (problema.length > 5000) {
+        return res.status(400).json({ errore: "Il messaggio è troppo lungo." });
+      }
+
+      if (immagine && !tipoImmagine) {
+        return res.status(400).json({ errore: "Formato dell'immagine non specificato." });
+      }
+
+      if (immagine) {
+        if (!TIPI_IMMAGINE_CONSENTITI.includes(tipoImmagine)) {
+          return res.status(400).json({ errore: "Formato immagine non supportato." });
+        }
+        if (typeof immagine !== "string" || immagine.length > MAX_IMMAGINE) {
+          return res.status(400).json({ errore: "Immagine troppo grande." });
+        }
+      }
+
+      const cronologia = Array.isArray(corpo.cronologia)
+        ? corpo.cronologia.slice(-10)
+        : [];
+
+      const messaggi = cronologia
+        .filter(m =>
+          m &&
+          (m.ruolo === "user" || m.ruolo === "assistant") &&
+          typeof m.testo === "string"
+        )
+        .map(m => {
+          const parts = [{ text: m.testo.slice(0, 2000) }];
+
+          if (
+            m.ruolo === "user" &&
+            typeof m.immagine === "string" &&
+            m.immagine.length <= MAX_IMMAGINE &&
+            TIPI_IMMAGINE_CONSENTITI.includes(m.tipoImmagine)
+          ) {
+            parts.push({ inlineData: { mimeType: m.tipoImmagine, data: m.immagine } });
+          }
+
+          return {
+            role: m.ruolo === "assistant" ? "model" : "user",
+            parts
+          };
+        });
+
+      const partiNuovoMessaggio = [{ text: problema }];
+
+      if (immagine) {
+        partiNuovoMessaggio.push({
+          inlineData: { mimeType: tipoImmagine, data: immagine }
+        });
+      }
+
+      messaggi.push({ role: "user", parts: partiNuovoMessaggio });
+
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+
+      console.log(`Nexcrank: richiesta di ${req.utente.uid} inviata a Gemini (${MODELLO_PRINCIPALE})...`);
+
+      // 1) Modello principale con retry ed exponential backoff
+      let esito = await generaConModello(MODELLO_PRINCIPALE, messaggi, res, controller.signal);
       if (esito.annullata || res.destroyed || res.writableEnded) return;
-    }
 
-    // 3) Risposta di sicurezza: la chat resta attiva, nessun errore grezzo
-    if (!esito.ok) {
-      console.error("Nexcrank: tutti i modelli hanno fallito.");
+      // 2) Fallback sul modello secondario (solo se non è già partito testo)
+      if (!esito.ok && !esito.haScritto) {
+        console.warn(
+          `Nexcrank: ${MODELLO_PRINCIPALE} non disponibile, passo a ${MODELLO_FALLBACK}.`
+        );
+        esito = await generaConModello(MODELLO_FALLBACK, messaggi, res, controller.signal);
+        if (esito.annullata || res.destroyed || res.writableEnded) return;
+      }
 
-      if (esito.haScritto) {
-        res.write(MESSAGGIO_INTERRUZIONE);
-        return res.end();
-      } else {
+      // 3) Risposta di sicurezza: la chat resta attiva, nessun errore grezzo
+      if (!esito.ok) {
+        console.error("Nexcrank: tutti i modelli hanno fallito.");
+
+        if (esito.haScritto) {
+          res.write(MESSAGGIO_INTERRUZIONE);
+          return res.end();
+        }
         return res.status(503).json({ errore: MESSAGGIO_DI_SICUREZZA });
       }
-    }
 
-    if (esito.limiteToken) {
-      res.write("\n\n⚠️ La risposta ha raggiunto il limite di lunghezza. Puoi chiedermi di continuare.");
-    }
+      if (esito.limiteToken) {
+        res.write("\n\n⚠️ La risposta ha raggiunto il limite di lunghezza. Puoi chiedermi di continuare.");
+      }
 
-    res.end();
-
-    console.log("Nexcrank: risposta completata.");
-
-  } catch (errore) {
-    if (res.destroyed || res.writableEnded) return;
-    console.error("Errore imprevisto:", errore.message);
-
-    if (!res.headersSent) {
-      // Un errore prima dello streaming deve restare un errore HTTP:
-      // il client non lo aggiunge alla cronologia come risposta dell'AI.
-      res.status(500).json({ errore: MESSAGGIO_DI_SICUREZZA });
-    } else if (!res.writableEnded) {
-      res.write(MESSAGGIO_INTERRUZIONE);
       res.end();
+      console.log("Nexcrank: risposta completata.");
+
+    } catch (errore) {
+      if (res.destroyed || res.writableEnded) return;
+      console.error("Errore imprevisto:", errore.message);
+
+      if (!res.headersSent) {
+        // Un errore prima dello streaming deve restare un errore HTTP:
+        // il client non lo aggiunge alla cronologia come risposta dell'AI.
+        res.status(500).json({ errore: MESSAGGIO_DI_SICUREZZA });
+      } else if (!res.writableEnded) {
+        res.write(MESSAGGIO_INTERRUZIONE);
+        res.end();
+      }
     }
   }
+);
+
+// ---------------------------------------------------------------------------
+// FALLBACK E GESTIONE ERRORI (nessuna informazione interna nelle risposte)
+// ---------------------------------------------------------------------------
+app.use("/api", (req, res) => {
+  return res.status(404).json({ errore: "API non trovata." });
 });
 
-app.use("/api", (req, res) => {
-  return res.status(404).json({ errore: "API non trovata. Riavvia il server Nexcrank aggiornato." });
+app.use((errore, req, res, next) => {
+  if (res.headersSent) return next(errore);
+  if (errore?.type === "entity.too.large") {
+    return res.status(413).json({ errore: "Richiesta troppo grande." });
+  }
+  if (errore?.type === "entity.parse.failed") {
+    return res.status(400).json({ errore: "Richiesta non valida." });
+  }
+  console.error("Nexcrank: errore non gestito:", errore?.message);
+  return res.status(500).json({ errore: "Errore interno del server." });
 });
 
 app.listen(PORT, () => {
