@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b1220">
   <title>Accedi o registrati · Nexcrank</title>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #080e19; color: #edf4ff; }
     * { box-sizing: border-box; }
@@ -19,7 +18,9 @@
     .tab { min-height: 42px; border: 0; border-radius: 8px; background: transparent; color: #9aabc0; font: inherit; font-weight: 700; cursor: pointer; }
     .tab[aria-selected="true"] { background: #16283c; color: #27c9de; }
     .google-section { margin: 0 0 20px; }
-    #googleButton { min-height: 42px; display: flex; justify-content: center; }
+    .google-btn { width: 100%; min-height: 46px; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid #304057; border-radius: 10px; background: #fff; color: #1f1f1f; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+    .google-btn:disabled { opacity: .65; cursor: wait; }
+    .google-btn svg { width: 18px; height: 18px; }
     .google-status { margin: 8px 0 0; color: #fbbf7d; font-size: 12px; line-height: 1.45; text-align: center; }
     .separator { display: flex; align-items: center; gap: 12px; margin: 18px 0 0; color: #71829a; font-size: 12px; }
     .separator::before, .separator::after { height: 1px; flex: 1; background: #26364d; content: ""; }
@@ -43,6 +44,7 @@
     .submit { width: 100%; min-height: 50px; margin-top: 22px; border: 0; border-radius: 11px; background: #20c7dc; color: #05111a; font: inherit; font-weight: 800; cursor: pointer; }
     .submit:disabled { opacity: .65; cursor: wait; }
     .forgot-password { display: block; margin: 12px auto 0; padding: 4px; border: 0; background: transparent; color: #20c7dc; font: inherit; font-size: 13px; cursor: pointer; }
+    .forgot-password[hidden] { display: none; }
     .forgot-password:hover { color: #8be8f2; text-decoration: underline; }
     .message { min-height: 22px; margin: 14px 0 0; color: #fda4af; font-size: 14px; line-height: 1.45; }
     .message.success { color: #73e0b0; }
@@ -62,7 +64,10 @@
       <button class="tab" id="registerTab" type="button" role="tab" aria-selected="false">Crea account</button>
     </div>
     <section class="google-section" aria-label="Accesso Google">
-      <div id="googleButton"></div>
+      <button id="googleButton" class="google-btn" type="button">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.100 0 24s.9 7.600 2.600 10.800l7.900-6.100z"/><path fill="#34A853" d="M24 48c6.500 0 11.900-2.100 15.900-5.800l-7.500-5.800c-2.100 1.400-4.800 2.300-8.400 2.300-6.300 0-11.600-4.100-13.500-9.800l-7.900 6.100C6.500 42.600 14.600 48 24 48z"/></svg>
+        Continua con Google
+      </button>
       <p id="googleStatus" class="google-status" role="status" aria-live="polite"></p>
       <div class="separator" aria-hidden="true">oppure con email</div>
     </section>
@@ -106,17 +111,37 @@
     <a class="back" href="index.html">← Torna alla chat</a>
     <p class="privacy">Le chat restano salvate nel browser su questo dispositivo e non si sincronizzano con l’account.</p>
   </main>
-  <script>
-   const API_BASE_URL = "https://nexcrank.onrender.com";
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+      sendEmailVerification, sendPasswordResetEmail, signOut,
+      GoogleAuthProvider, signInWithPopup, linkWithCredential
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    // ⚠️ Sostituisci con i valori del tuo progetto (Console Firebase → Impostazioni progetto → App web).
+    const firebaseConfig = {
+      apiKey: "AIzaSyBe7hvL9-ku94HlgjLyGhLLh8JVJl5vtkw",
+      authDomain: "nexcrank-5118d.firebaseapp.com",
+      projectId: "nexcrank-5118d",
+      appId: "1:508780036969:web:9bc61c20c18029197cf3f8"
+    };
+    const auth = getAuth(initializeApp(firebaseConfig));
+    auth.languageCode = "it";
+
+    // Dopo reset password / verifica email, Firebase mostra un pulsante "Continua" verso questa pagina.
+    // Il dominio deve essere in Authentication → Settings → Authorized domains.
+    const opzioniAzione = { url: new URL("accesso.html", window.location.href).href };
+
     const loginTab = document.getElementById("loginTab");
     const registerTab = document.getElementById("registerTab");
     const title = document.getElementById("title");
     const form = document.getElementById("authForm");
+    const email = document.getElementById("email");
     const password = document.getElementById("password");
     const passwordHelp = document.getElementById("passwordHelp");
     const confirmWrap = document.getElementById("confirmWrap");
     const confirmPassword = document.getElementById("confirmPassword");
-    const passwordVisibilityButtons = document.querySelectorAll(".password-visibility");
     const submitButton = document.getElementById("submitButton");
     const forgotPassword = document.getElementById("forgotPassword");
     const message = document.getElementById("message");
@@ -126,9 +151,26 @@
     const googleLinkForm = document.getElementById("googleLinkForm");
     const googleLinkPassword = document.getElementById("googleLinkPassword");
     const googleLinkButton = document.getElementById("googleLinkButton");
-    let googleCredentialInAttesa = "";
     let mode = "login";
-    passwordVisibilityButtons.forEach(button => {
+    let credenzialeGoogleInAttesa = null;
+    let emailDaCollegare = "";
+
+    const errori = {
+      "auth/invalid-email": "Indirizzo email non valido.",
+      "auth/invalid-credential": "Email o password non corrette.",
+      "auth/wrong-password": "Email o password non corrette.",
+      "auth/user-not-found": "Email o password non corrette.",
+      "auth/user-disabled": "Questo account è disabilitato.",
+      "auth/email-already-in-use": "Esiste già un account con questa email. Prova ad accedere.",
+      "auth/weak-password": "La password è troppo debole. Usa almeno 10 caratteri.",
+      "auth/too-many-requests": "Troppi tentativi. Riprova tra qualche minuto.",
+      "auth/network-request-failed": "Connessione non riuscita. Riprova.",
+      "auth/popup-blocked": "Il browser ha bloccato la finestra di Google. Consenti i popup e riprova.",
+      "auth/unauthorized-domain": "Dominio non autorizzato: aggiungilo in Firebase → Authentication → Settings → Authorized domains."
+    };
+    const testoErrore = (e, predefinito) => errori[e?.code] || predefinito;
+
+    document.querySelectorAll(".password-visibility").forEach(button => {
       button.addEventListener("click", () => {
         const input = document.getElementById(button.dataset.passwordTarget);
         const mostra = input.type === "password";
@@ -137,6 +179,7 @@
         button.setAttribute("aria-label", mostra ? "Nascondi password" : "Mostra password");
       });
     });
+
     function setMode(nextMode) {
       mode = nextMode;
       const registration = mode === "register";
@@ -154,77 +197,51 @@
     }
     loginTab.addEventListener("click", () => setMode("login"));
     registerTab.addEventListener("click", () => setMode("register"));
-    async function inviaCredenzialeGoogle(credential, passwordEsistente = "") {
-    const response = await fetch(API_BASE_URL + "/api/auth/google", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ credential, password: passwordEsistente })
-      });
-      const tipoRisposta = response.headers.get("content-type") || "";
-      if (!tipoRisposta.includes("application/json")) throw new Error("Il server Nexcrank non è aggiornato. Riavvialo con node server.js e ricarica la pagina.");
-      const result = await response.json();
-      if (!response.ok && result.collegaAccount) {
-        googleCredentialInAttesa = credential;
-        googleLinkPanel.hidden = false;
-        googleStatus.textContent = "Inserisci la password Nexcrank per confermare il collegamento.";
-        googleLinkPassword.focus();
-        return;
+
+    // ---------- Google ----------
+    googleButton.addEventListener("click", async () => {
+      googleStatus.textContent = "";
+      googleButton.disabled = true;
+      try {
+        await signInWithPopup(auth, new GoogleAuthProvider());
+        window.location.assign("index.html");
+      } catch (error) {
+        if (error.code === "auth/account-exists-with-different-credential") {
+          credenzialeGoogleInAttesa = GoogleAuthProvider.credentialFromError(error);
+          emailDaCollegare = error.customData?.email || "";
+          googleLinkPanel.hidden = false;
+          googleStatus.textContent = "Inserisci la password Nexcrank per confermare il collegamento.";
+          googleLinkPassword.focus();
+        } else if (error.code === "auth/popup-closed-by-user" || error.code === "auth/cancelled-popup-request") {
+          googleStatus.textContent = "";
+        } else {
+          googleStatus.textContent = testoErrore(error, "Accesso Google non riuscito.");
+        }
+      } finally {
+        googleButton.disabled = false;
       }
-      if (!response.ok) throw new Error(result.errore || "Accesso Google non riuscito.");
-      window.location.assign("index.html");
-    }
+    });
 
     googleLinkForm.addEventListener("submit", async event => {
       event.preventDefault();
-      if (!googleCredentialInAttesa) return;
+      if (!credenzialeGoogleInAttesa || !emailDaCollegare) return;
       googleLinkButton.disabled = true;
       googleLinkButton.textContent = "Collegamento…";
       googleStatus.textContent = "";
       try {
-        await inviaCredenzialeGoogle(googleCredentialInAttesa, googleLinkPassword.value);
+        const cred = await signInWithEmailAndPassword(auth, emailDaCollegare, googleLinkPassword.value);
+        await linkWithCredential(cred.user, credenzialeGoogleInAttesa);
+        window.location.assign("index.html");
       } catch (error) {
-        googleStatus.textContent = error.message || "Collegamento non riuscito.";
-      } finally {
+        googleStatus.textContent = testoErrore(error, "Collegamento non riuscito.");
         googleLinkButton.disabled = false;
         googleLinkButton.textContent = "Collega e accedi";
       }
     });
 
-    async function inizializzaAccessoGoogle() {
-      try {
-        const configResponse = await fetch(API_BASE_URL + "/api/auth/google-config", { cache: "no-store" });
-        const config = await configResponse.json();
-        if (!config.clientId) {
-          googleStatus.textContent = "Per attivare Google serve un ID client nella configurazione del sito.";
-          return;
-        }
-        const limite = Date.now() + 10000;
-        while (!window.google?.accounts?.id && Date.now() < limite) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        if (!window.google?.accounts?.id) throw new Error("Non riesco a caricare il servizio di accesso Google. Controlla la connessione e ricarica.");
-        window.google.accounts.id.initialize({
-          client_id: config.clientId,
-          callback: risposta => {
-            googleStatus.textContent = "Accesso in corso…";
-            inviaCredenzialeGoogle(risposta.credential).catch(error => {
-              googleStatus.textContent = error.message || "Accesso Google non riuscito.";
-            });
-          }
-        });
-        window.google.accounts.id.renderButton(googleButton, {
-          type: "standard", theme: "outline", size: "large", text: "continue_with",
-          shape: "rectangular", logo_alignment: "left", width: Math.min(400, Math.max(220, Math.floor(googleButton.clientWidth)))
-        });
-      } catch (error) {
-        googleStatus.textContent = error.message || "Accesso Google non disponibile.";
-      }
-    }
-
-    inizializzaAccessoGoogle();
+    // ---------- Password dimenticata ----------
     forgotPassword.addEventListener("click", async () => {
       message.classList.remove("success");
-      const email = document.getElementById("email");
       if (!email.value.trim() || !email.checkValidity()) {
         message.textContent = "Inserisci prima l’indirizzo email del tuo account.";
         email.focus();
@@ -232,22 +249,25 @@
       }
       forgotPassword.disabled = true;
       forgotPassword.textContent = "Invio in corso…";
+      const neutro = "Se l’indirizzo è registrato, ti abbiamo inviato un link per reimpostare la password.";
       try {
-       const response = await fetch(API_BASE_URL + "/api/auth/forgot-password", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email.value })
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.errore || "Non riesco a inviare il link. Riprova.");
-        message.textContent = result.messaggio;
+        await sendPasswordResetEmail(auth, email.value.trim(), opzioniAzione);
+        message.classList.add("success");
+        message.textContent = neutro;
       } catch (error) {
-        message.textContent = error.message || "Connessione non riuscita. Riprova.";
+        if (error.code === "auth/user-not-found") {
+          message.classList.add("success");
+          message.textContent = neutro;
+        } else {
+          message.textContent = testoErrore(error, "Non riesco a inviare il link. Riprova.");
+        }
       } finally {
         forgotPassword.disabled = false;
         forgotPassword.textContent = "Password dimenticata?";
       }
     });
+
+    // ---------- Accesso / registrazione con email ----------
     form.addEventListener("submit", async event => {
       event.preventDefault();
       message.textContent = "";
@@ -260,28 +280,35 @@
       submitButton.disabled = true;
       submitButton.textContent = mode === "register" ? "Creo l’account…" : "Accesso…";
       try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/${mode}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: document.getElementById("email").value, password: password.value })
-        });
-        const tipoRisposta = response.headers.get("content-type") || "";
-        if (!tipoRisposta.includes("application/json")) {
-          throw new Error(`Il server ha restituito una pagina invece dei dati dell’account (HTTP ${response.status}). Riavvia Nexcrank con node server.js dalla cartella del progetto, poi ricarica questa pagina.`);
+        if (mode === "register") {
+          const cred = await createUserWithEmailAndPassword(auth, email.value.trim(), password.value);
+          await sendEmailVerification(cred.user, opzioniAzione);
+          await signOut(auth);
+          setMode("login");
+          password.value = "";
+          confirmPassword.value = "";
+          message.classList.add("success");
+          message.textContent = "Account creato. Ti abbiamo inviato un’email: clicca sul link di verifica, poi accedi.";
+        } else {
+          const cred = await signInWithEmailAndPassword(auth, email.value.trim(), password.value);
+          if (!cred.user.emailVerified) {
+            await sendEmailVerification(cred.user, opzioniAzione).catch(() => {});
+            await signOut(auth);
+            message.textContent = "Devi prima verificare la tua email. Ti abbiamo inviato un nuovo link di verifica.";
+          } else {
+            message.classList.add("success");
+            message.textContent = "Accesso effettuato. Apro la chat…";
+            window.location.assign("index.html");
+            return;
+          }
         }
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.errore || "Operazione non riuscita. Riprova.");
-        message.classList.add("success");
-        message.textContent = mode === "register" ? "Account creato. Apro la chat…" : "Accesso effettuato. Apro la chat…";
-        window.location.assign("index.html");
       } catch (error) {
-        message.textContent = error.message || "Connessione non riuscita. Riprova.";
-        submitButton.disabled = false;
-        submitButton.textContent = mode === "register" ? "Crea account" : "Accedi";
+        message.textContent = testoErrore(error, "Operazione non riuscita. Riprova.");
       }
+      submitButton.disabled = false;
+      submitButton.textContent = mode === "register" ? "Crea account" : "Accedi";
     });
   </script>
   <footer style="padding:18px;text-align:center;color:#8292a8;font:13px system-ui"><a href="privacy.html" style="color:#20c7dc;margin:0 10px">Privacy</a><a href="termini.html" style="color:#20c7dc;margin:0 10px">Termini di servizio</a></footer>
 </body>
 </html>
-
