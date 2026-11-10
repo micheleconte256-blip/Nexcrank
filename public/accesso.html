@@ -275,11 +275,18 @@
         email.focus();
         return;
       }
-      forgotPassword.disabled = true;
-      forgotPassword.textContent = "Invio in corso…";
-      const neutro = "Se l’indirizzo è registrato, ti abbiamo inviato un link per reimpostare la password.";
+     forgotPassword.disabled = true;
+    forgotPassword.textContent = "Invio in corso...";
+    const neutro = "Se l'indirizzo è registrato, ti abbiamo inviato un link per reimpostare la password.";
+    
+    // Aggiungi queste righe qui:
+    const opzioniazione = {
+      url: 'https://nexcrank.onrender.com/accesso.html',
+      handleCodeInApp: false
+    };
+
       try {
-        await sendPasswordResetEmail(auth, email.value.trim(), opzioniAzione);
+        await sendPasswordResetEmail(auth, email.value.trim(), opzioniazione);
         message.classList.add("success");
         message.textContent = neutro;
       } catch (error) {
