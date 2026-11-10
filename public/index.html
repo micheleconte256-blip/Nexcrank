@@ -1064,6 +1064,33 @@
     <nav aria-label="Informazioni legali" style="display:flex;justify-content:center;gap:18px;margin-top:8px"><a href="privacy.html" style="color:#8fa1b8">Privacy</a><a href="termini.html" style="color:#8fa1b8">Termini di servizio</a></nav>
   </footer>
 
+  <!-- Firebase Auth: espone window.nexAuth per ottenere il token da inviare al server -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    const auth = getAuth(initializeApp({
+      apiKey: "AIzaSyBe7hvL9-ku94HlgjLyGhLLh8JVJl5vtkw",
+      authDomain: "nexcrank-5118d.firebaseapp.com",
+      projectId: "nexcrank-5118d",
+      appId: "1:508780036969:web:9bc61c20c18029197cf3f8"
+    }));
+
+    // Aspetta che Firebase ripristini la sessione salvata nel browser
+    const primoStato = new Promise(resolve => {
+      const stop = onAuthStateChanged(auth, utente => { stop(); resolve(utente); });
+    });
+
+    window.nexAuth = {
+      async getToken() {
+        await primoStato;
+        return auth.currentUser ? auth.currentUser.getIdToken() : null;
+      },
+      async esci() { await signOut(auth); }
+    };
+    window.dispatchEvent(new Event("nexauth-pronto"));
+  </script>
+
   <script>
     const problem = document.getElementById("problem");
     const photo = document.getElementById("photo");
@@ -1109,9 +1136,28 @@
       return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     }
 
+    // ------------------------------------------------------------
+    //  Autenticazione: il server richiede "Authorization: Bearer <token>"
+    // ------------------------------------------------------------
+    function attendiAuth() {
+      return new Promise(resolve => {
+        if (window.nexAuth) return resolve(window.nexAuth);
+        window.addEventListener("nexauth-pronto", () => resolve(window.nexAuth), { once: true });
+      });
+    }
+
+    async function intestazioniAuth(extra = {}) {
+      const auth = await attendiAuth();
+      const token = await auth.getToken();
+      return token ? { ...extra, Authorization: "Bearer " + token } : extra;
+    }
+
     async function aggiornaAccount() {
       try {
-        const risposta = await fetch("/api/auth/me", { cache: "no-store" });
+        const risposta = await fetch("/api/auth/me", {
+          cache: "no-store",
+          headers: await intestazioniAuth()
+        });
         if (!risposta.ok) return;
         const dati = await risposta.json();
         if (dati.utente?.email) {
@@ -1127,11 +1173,10 @@
     accountLogout.addEventListener("click", async () => {
       accountLogout.disabled = true;
       try {
-        await fetch("/api/auth/logout", { method: "POST" });
+        const auth = await attendiAuth();
+        await auth.esci();
       } finally {
-        accountInfo.hidden = true;
-        accountLink.hidden = false;
-        accountLogout.disabled = false;
+        window.location.replace("accesso.html");
       }
     });
 
@@ -1914,9 +1959,9 @@
 
         const response = await fetch("/api/diagnosi", {
           method: "POST",
-          headers: {
+          headers: await intestazioniAuth({
             "Content-Type": "application/json"
-          },
+          }),
           body: JSON.stringify({
             problema: testoDaInviare,
             cronologia: cronologiaDaInviare,
@@ -2050,12 +2095,13 @@
         inviaMessaggio();
       }
     });
+
     // Verifica l'accesso: se non autenticato, vai alla pagina di accesso
     (async function controllaAccesso() {
       try {
         const risposta = await fetch("/api/auth/me", {
           cache: "no-store",
-          credentials: "same-origin"
+          headers: await intestazioniAuth()
         });
 
         if (risposta.ok) {

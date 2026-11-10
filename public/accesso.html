@@ -116,7 +116,8 @@
     import {
       getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
       sendEmailVerification, sendPasswordResetEmail, signOut,
-      GoogleAuthProvider, signInWithPopup, linkWithCredential
+      GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
+      setPersistence, browserLocalPersistence, linkWithCredential
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
     // ⚠️ Sostituisci con i valori del tuo progetto (Console Firebase → Impostazioni progetto → App web).
@@ -128,6 +129,22 @@
     };
     const auth = getAuth(initializeApp(firebaseConfig));
     auth.languageCode = "it";
+    // Mantiene la sessione Firebase nel browser tra accesso e navigazione.
+    const persistenceReady = setPersistence(auth, browserLocalPersistence);
+
+    // Se il browser ha richiesto il flusso redirect, recupera qui il risultato
+    // dopo il ritorno da Google. Senza questo passaggio la pagina può sembrare
+    // tornata semplicemente al login.
+    try {
+      await persistenceReady;
+      const redirectResult = await getRedirectResult(auth);
+      if (redirectResult?.user) window.location.assign("index.html");
+    } catch (error) {
+      const redirectStatus = document.getElementById("googleStatus");
+      if (redirectStatus) redirectStatus.textContent = error?.code === "auth/unauthorized-domain"
+        ? "Dominio non autorizzato: aggiungilo in Firebase → Authentication → Settings → Authorized domains."
+        : "Accesso Google non riuscito. Verifica la configurazione OAuth e riprova.";
+    }
 
     // Dopo reset password / verifica email, Firebase mostra un pulsante "Continua" verso questa pagina.
     // Il dominio deve essere in Authentication → Settings → Authorized domains.
@@ -203,8 +220,9 @@
       googleStatus.textContent = "";
       googleButton.disabled = true;
       try {
-        await signInWithPopup(auth, new GoogleAuthProvider());
-        window.location.assign("index.html");
+        await persistenceReady;
+        const result = await signInWithPopup(auth, new GoogleAuthProvider());
+        if (result.user) window.location.assign("index.html");
       } catch (error) {
         if (error.code === "auth/account-exists-with-different-credential") {
           credenzialeGoogleInAttesa = GoogleAuthProvider.credentialFromError(error);
@@ -212,6 +230,16 @@
           googleLinkPanel.hidden = false;
           googleStatus.textContent = "Inserisci la password Nexcrank per confermare il collegamento.";
           googleLinkPassword.focus();
+        } else if (error.code === "auth/popup-blocked") {
+          // Il redirect è avviato direttamente dal clic dell'utente; al ritorno
+          // getRedirectResult, sopra, completa il flusso.
+          try {
+            await signInWithRedirect(auth, new GoogleAuthProvider());
+          } catch (redirectError) {
+            googleStatus.textContent = testoErrore(redirectError, "Accesso Google non riuscito.");
+            googleButton.disabled = false;
+          }
+          return;
         } else if (error.code === "auth/popup-closed-by-user" || error.code === "auth/cancelled-popup-request") {
           googleStatus.textContent = "";
         } else {
