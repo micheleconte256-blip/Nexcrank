@@ -25,13 +25,15 @@
       --accent: #22d3ee;
     }
 
-    /* Interfaccia nascosta finché l'accesso non è verificato */
+    /* L'interfaccia è sempre visibile (modalità demo inclusa).
+       Le funzioni di chat sono bloccate via JS finché non si accede. */
     .app-shell {
-      display: none;
+      display: flex;
     }
 
-    body.autenticato .app-shell {
-      display: flex;
+    /* Area account nascosta finché lo stato di accesso non è noto (evita sfarfallii) */
+    body:not(.auth-pronto) .account-area {
+      visibility: hidden;
     }
 
     body {
@@ -71,6 +73,12 @@
       letter-spacing: 2px;
     }
 
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
     .history-toggle {
       display: none;
       width: 38px;
@@ -83,27 +91,42 @@
       cursor: pointer;
     }
 
+    /* ---------- Pulsante "Apri Guida 3D →" ---------- */
     .guide-link {
       min-height: 42px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 0 14px;
-      border: 1px solid #67e8f9;
+      padding: 0 16px;
+      border: 1.5px solid #67e8f9;
       border-radius: 12px;
       background: linear-gradient(135deg, #22d3ee, #16b8d0);
       color: #071521;
       text-decoration: none;
       font-size: 13px;
       font-weight: 800;
-      box-shadow: 0 5px 18px #22d3ee22;
-      transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
+      white-space: nowrap;
+      cursor: pointer;
+      box-shadow: 0 2px 8px #00000055, 0 5px 18px #22d3ee2e;
+      transition: transform .2s ease, filter .2s ease, box-shadow .2s ease;
     }
-    .guide-link:hover { transform: translateY(-1px); filter: brightness(1.08); box-shadow: 0 7px 22px #22d3ee38; }
-    .guide-link:active { transform: translateY(0); }
+    .guide-link:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.1);
+      box-shadow: 0 4px 12px #00000066, 0 8px 24px #22d3ee45;
+    }
+    .guide-link:active { transform: translateY(0); filter: brightness(1); }
     .guide-link:focus-visible { outline: 3px solid #a5f3fc; outline-offset: 3px; }
     .guide-link svg { width: 18px; height: 18px; flex: 0 0 18px; }
+    .guide-arrow {
+      display: inline-block;
+      font-size: 15px;
+      line-height: 1;
+      transition: transform .2s ease;
+    }
+    .guide-link:hover .guide-arrow,
+    .guide-link:focus-visible .guide-arrow { transform: translateX(4px); }
 
     .app-shell { min-height: calc(100vh - 118px); }
     .sidebar {
@@ -169,10 +192,35 @@
     .history-empty { padding: 4px 8px; color: #73849a; font-size: 12px; line-height: 1.55; }
     .sidebar-note { margin: 18px 8px 0; color: #687a91; font-size: 11px; line-height: 1.5; }
     .account-area { flex: 0 0 auto; margin-top: 14px; }
-    .account-login, .account-info { width: 100%; min-height: 58px; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid #26364d; border-radius: 12px; background: linear-gradient(135deg, #101d2e, #0d1725); color: #e5eef9; }
-    .account-login { text-decoration: none; transition: border-color .18s, background .18s, transform .18s; }
-    .account-login:hover { border-color: #287085; background: linear-gradient(135deg, #132638, #10202e); color: white; transform: translateY(-1px); }
-    .account-login[hidden], .account-info[hidden] { display: none !important; }
+    .account-info { width: 100%; min-height: 58px; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid #26364d; border-radius: 12px; background: linear-gradient(135deg, #101d2e, #0d1725); color: #e5eef9; }
+    .account-info[hidden] { display: none !important; }
+
+    /* Pulsante "Accedi / Registrati" (utenti non loggati) */
+    .account-cta {
+      width: 100%;
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 9px 12px;
+      border: 1.5px solid #67e8f9;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #22d3ee, #16b8d0);
+      color: #071521;
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: 0 2px 8px #00000055, 0 5px 18px #22d3ee2e;
+      transition: transform .2s ease, filter .2s ease, box-shadow .2s ease;
+    }
+    .account-cta:hover { transform: translateY(-1px); filter: brightness(1.08); box-shadow: 0 4px 12px #00000066, 0 8px 24px #22d3ee45; }
+    .account-cta:active { transform: translateY(0); }
+    .account-cta:focus-visible { outline: 3px solid #a5f3fc; outline-offset: 3px; }
+    .account-cta[hidden] { display: none !important; }
+    .account-cta .account-avatar { border-color: #0b6f82; background: #0a5d70; color: #d9fbff; }
+    .account-cta .account-title { color: #071521; font-size: 14px; font-weight: 800; }
+    .account-cta .account-subtitle { color: #0b3a47; font-size: 11px; }
+    .account-cta .account-chevron { color: #0b3a47; }
+
     .account-avatar { width: 36px; height: 36px; flex: 0 0 36px; display: grid; place-items: center; border: 1px solid #245064; border-radius: 10px; background: #123447; color: #25c8dc; }
     .account-avatar svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
     .account-copy, .account-details { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
@@ -243,6 +291,65 @@
       font-size: 14px;
       line-height: 1.7;
     }
+
+    /* ---------- Chip di azione rapida ---------- */
+    .quick-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: stretch;
+      gap: 10px;
+      max-width: 640px;
+      margin: 26px auto 0;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 10px 16px;
+      border: 1px solid #2c4a62;
+      border-radius: 999px;
+      background: #111c2d;
+      color: #d6e6f7;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.3;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform .2s ease, border-color .2s ease, background .2s ease, color .2s ease, box-shadow .2s ease;
+    }
+    .chip:hover {
+      transform: translateY(-1px);
+      border-color: var(--accent);
+      background: #14273b;
+      color: white;
+      box-shadow: 0 6px 18px #22d3ee1c;
+    }
+    .chip:active { transform: translateY(0); }
+    .chip:focus-visible { outline: 3px solid #a5f3fc; outline-offset: 3px; }
+    .chip-emoji { font-size: 15px; line-height: 1; }
+
+    .chip-primary {
+      border-color: #67e8f9;
+      background: linear-gradient(135deg, #22d3ee, #16b8d0);
+      color: #071521;
+      font-weight: 800;
+      box-shadow: 0 5px 18px #22d3ee2e;
+    }
+    .chip-primary:hover {
+      border-color: #a5f3fc;
+      background: linear-gradient(135deg, #3bdcf3, #1cc2da);
+      color: #071521;
+      filter: brightness(1.05);
+      box-shadow: 0 8px 24px #22d3ee45;
+    }
+    .chip-primary .chip-arrow { display: inline-block; transition: transform .2s ease; }
+    .chip-primary:hover .chip-arrow { transform: translateX(4px); }
 
     .messages {
       flex: 1;
@@ -709,6 +816,9 @@
       color: #71849c;
     }
 
+    /* Modalità demo: la casella appare cliccabile ma apre l'invito ad accedere */
+    body.demo textarea { cursor: pointer; }
+
     .composer-bottom {
       display: flex;
       align-items: center;
@@ -777,6 +887,36 @@
     .edit-notice[hidden] { display: none; }
     .edit-notice button { border: 0; background: transparent; color: var(--accent); font: inherit; font-weight: 700; cursor: pointer; }
 
+    /* Banner modalità demo sopra la barra di input */
+    .demo-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+      padding: 10px 12px 10px 14px;
+      border: 1px solid #226477;
+      border-radius: 12px;
+      background: #102333;
+      color: #bcecf2;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .demo-banner[hidden] { display: none; }
+    .demo-banner a {
+      flex: 0 0 auto;
+      padding: 7px 12px;
+      border-radius: 9px;
+      background: var(--accent);
+      color: #06121b;
+      font-size: 12px;
+      font-weight: 800;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: filter .2s, transform .2s;
+    }
+    .demo-banner a:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
     .hint {
       margin: 11px 0 0;
       text-align: center;
@@ -837,6 +977,73 @@
       font-size: 11px;
     }
 
+    /* ---------- Finestra "Accedi per continuare" ---------- */
+    .auth-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: #000a;
+      backdrop-filter: blur(3px);
+    }
+    .auth-modal[hidden] { display: none; }
+    .auth-dialog {
+      width: min(420px, 100%);
+      padding: 28px 24px 22px;
+      border: 1px solid #2c4a62;
+      border-radius: 20px;
+      background: #101827;
+      text-align: center;
+      box-shadow: 0 20px 60px #000a;
+      animation: appear .2s ease;
+    }
+    .auth-dialog-icon {
+      width: 52px;
+      height: 52px;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 16px;
+      border-radius: 16px;
+      background: #123448;
+      color: var(--accent);
+      font-size: 24px;
+    }
+    .auth-dialog h2 { margin: 0 0 10px; font-size: 20px; }
+    .auth-dialog p { margin: 0 0 20px; color: var(--muted); font-size: 14px; line-height: 1.65; }
+    .auth-dialog-actions { display: flex; flex-direction: column; gap: 9px; }
+    .auth-dialog-primary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      border: 1.5px solid #67e8f9;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #22d3ee, #16b8d0);
+      color: #071521;
+      font-size: 14px;
+      font-weight: 800;
+      text-decoration: none;
+      box-shadow: 0 5px 18px #22d3ee2e;
+      transition: transform .2s, filter .2s;
+    }
+    .auth-dialog-primary:hover { transform: translateY(-1px); filter: brightness(1.08); }
+    .auth-dialog-primary:focus-visible, .auth-dialog-secondary:focus-visible { outline: 3px solid #a5f3fc; outline-offset: 3px; }
+    .auth-dialog-secondary {
+      min-height: 42px;
+      border: 1px solid #304057;
+      border-radius: 12px;
+      background: transparent;
+      color: #b5c5d9;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      transition: .2s;
+    }
+    .auth-dialog-secondary:hover { border-color: var(--accent); color: white; }
+
     @media (max-width: 760px) {
       header { padding: 0 4%; }
       .history-toggle { display: grid; place-items: center; }
@@ -883,9 +1090,10 @@
         font-size: 19px;
       }
 
-      .header-status {
-        font-size: 9px;
-        letter-spacing: 1px;
+      .guide-link {
+        min-height: 40px;
+        padding: 0 13px;
+        font-size: 12px;
       }
 
       main {
@@ -894,8 +1102,27 @@
       }
 
       .welcome {
-        margin: 65px 0 28px;
+        margin: 55px 0 24px;
       }
+
+      /* Chip a larghezza piena, impilati e allineati */
+      .quick-actions {
+        flex-direction: column;
+        gap: 9px;
+        margin-top: 22px;
+      }
+      .chip {
+        width: 100%;
+        min-height: 46px;
+        border-radius: 14px;
+      }
+
+      .demo-banner {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+      }
+      .demo-banner a { text-align: center; padding: 10px 12px; }
 
       .messages {
         gap: 22px;
@@ -941,6 +1168,11 @@
         text-align: center;
       }
     }
+
+    @media (max-width: 380px) {
+      .guide-link svg { display: none; }
+      .logo { font-size: 17px; }
+    }
   </style>
 </head>
 
@@ -950,10 +1182,11 @@
       <button id="historyToggle" class="history-toggle" type="button" aria-label="Apri cronologia chat" aria-expanded="false">☰</button>
       <div class="logo">NEX<span>CRANK</span></div>
     </div>
-    <div style="display: flex; align-items: center; gap: 15px;">
+    <div class="header-right">
       <a href="guida3d.html" class="guide-link" aria-label="Apri la Guida 3D interattiva">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4.5 7.7 7.5 4.4 7.5-4.4M12 12v8.5"/></svg>
-        <span>Guida 3D</span>
+        <span>Apri Guida 3D</span>
+        <span class="guide-arrow" aria-hidden="true">→</span>
       </a>
       <div class="header-status">BIKE INTELLIGENCE</div>
     </div>
@@ -966,9 +1199,9 @@
       <nav id="historyList" class="history-list" aria-label="Conversazioni salvate"></nav>
       <p class="sidebar-note">Le conversazioni sono salvate su questo dispositivo. Le foto allegate non vengono conservate.</p>
       <div class="account-area">
-        <a id="accountLink" class="account-login" href="accesso.html">
+        <a id="accountLink" class="account-cta" href="accesso.html" hidden>
           <span class="account-avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.7-3.2 3.2-5 7-5s6.3 1.8 7 5"/></svg></span>
-          <span class="account-copy"><span class="account-title">Il tuo account</span><span class="account-subtitle">Accedi o crea un account</span></span>
+          <span class="account-copy"><span class="account-title">Accedi / Registrati</span><span class="account-subtitle">Per chattare con Nexcrank</span></span>
           <svg class="account-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
         </a>
         <div id="accountInfo" class="account-info" hidden>
@@ -1007,11 +1240,30 @@
         Descrivi il problema della tua bici o inviami una foto.
         Ti aiuterò a capire da dove iniziare, passo dopo passo.
       </p>
+      <div class="quick-actions" role="group" aria-label="Azioni rapide">
+        <a class="chip chip-primary" href="guida3d.html">
+          <span class="chip-emoji" aria-hidden="true">🧭</span>
+          <span>Esplora la Guida 3D interattiva</span>
+          <span class="chip-arrow" aria-hidden="true">→</span>
+        </a>
+        <button class="chip" type="button" data-domanda="Come si regola il cambio posteriore della bici? Spiegami la procedura passo dopo passo.">
+          <span class="chip-emoji" aria-hidden="true">⚙️</span>
+          <span>Come regolare il cambio</span>
+        </button>
+        <button class="chip" type="button" data-domanda="Come controllo lo stato dei freni a disco della mia bici? Quali segnali indicano che vanno sistemati?">
+          <span class="chip-emoji" aria-hidden="true">🛞</span>
+          <span>Controllo freni a disco</span>
+        </button>
+      </div>
     </section>
 
     <section class="messages" id="messages" aria-live="polite"></section>
 
     <div class="composer-area">
+      <div class="demo-banner" id="demoBanner" hidden>
+        <span>👀 Modalità demo: puoi esplorare la Guida 3D. Accedi per chattare con Nexcrank e inviare foto.</span>
+        <a href="accesso.html">Accedi / Registrati</a>
+      </div>
       <div class="edit-notice" id="editNotice" hidden>
         <span id="editNoticeText">Stai modificando un tuo messaggio</span>
         <button id="cancelEdit" type="button">Annulla</button>
@@ -1036,7 +1288,7 @@
 
         <div class="composer-bottom">
           <div class="composer-left">
-            <label class="attach" for="photo" title="Allega una foto">＋</label>
+            <label class="attach" for="photo" id="attachLabel" title="Allega una foto">＋</label>
             <input
               id="photo"
               type="file"
@@ -1064,6 +1316,19 @@
     <nav aria-label="Informazioni legali" style="display:flex;justify-content:center;gap:18px;margin-top:8px"><a href="privacy.html" style="color:#8fa1b8">Privacy</a><a href="termini.html" style="color:#8fa1b8">Termini di servizio</a></nav>
   </footer>
 
+  <!-- Finestra mostrata agli utenti non registrati quando provano a usare la chat -->
+  <div class="auth-modal" id="authModal" hidden>
+    <div class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authModalTitle" aria-describedby="authModalText">
+      <div class="auth-dialog-icon" aria-hidden="true">🔒</div>
+      <h2 id="authModalTitle">Accedi per continuare</h2>
+      <p id="authModalText">Per chattare con Nexcrank e analizzare le foto della tua bici serve un account gratuito. La Guida 3D resta sempre liberamente accessibile.</p>
+      <div class="auth-dialog-actions">
+        <a id="authModalLogin" class="auth-dialog-primary" href="accesso.html">Accedi / Registrati</a>
+        <button id="authModalClose" class="auth-dialog-secondary" type="button">Continua a esplorare</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Firebase Auth: espone window.nexAuth per ottenere il token da inviare al server -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -1082,6 +1347,11 @@
     });
 
     window.nexAuth = {
+      // true se esiste un utente Firebase (currentUser !== null) dopo il ripristino della sessione
+      async haUtente() {
+        await primoStato;
+        return auth.currentUser !== null;
+      },
       async getToken() {
         await primoStato;
         return auth.currentUser ? auth.currentUser.getIdToken() : null;
@@ -1094,6 +1364,7 @@
   <script>
     const problem = document.getElementById("problem");
     const photo = document.getElementById("photo");
+    const attachLabel = document.getElementById("attachLabel");
     const preview = document.getElementById("preview");
     const photoPreview = document.getElementById("photoPreview");
     const fileName = document.getElementById("fileName");
@@ -1106,6 +1377,10 @@
     const messages = document.getElementById("messages");
     const error = document.getElementById("error");
     const welcome = document.getElementById("welcome");
+    const demoBanner = document.getElementById("demoBanner");
+    const authModal = document.getElementById("authModal");
+    const authModalLogin = document.getElementById("authModalLogin");
+    const authModalClose = document.getElementById("authModalClose");
 
     const CHIAVE_CHAT = "nexcrank-chat-v1"; // chiave della vecchia chat singola
     const CHIAVE_CRONOLOGIA = "nexcrank-conversations-v1";
@@ -1132,6 +1407,11 @@
     let indiceInModifica = null;
     let controllerRichiesta = null;
 
+    // Stato di accesso: false = modalità demo
+    let loggato = false;
+    let accessoVerificato = false;
+    let fuocoPrecedente = null;
+
     function creaIdConversazione() {
       return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     }
@@ -1152,22 +1432,79 @@
       return token ? { ...extra, Authorization: "Bearer " + token } : extra;
     }
 
-    async function aggiornaAccount() {
+    // ------------------------------------------------------------
+    //  Modalità demo / utente autenticato
+    // ------------------------------------------------------------
+    function impostaModalita(utenteLoggato, email) {
+      loggato = utenteLoggato;
+      accessoVerificato = true;
+      document.body.classList.add("auth-pronto");
+      document.body.classList.toggle("autenticato", loggato);
+      document.body.classList.toggle("demo", !loggato);
+
+      accountLink.hidden = loggato;
+      accountInfo.hidden = !loggato;
+      accountEmail.textContent = loggato ? (email || "") : "";
+      demoBanner.hidden = loggato;
+
+      problem.readOnly = !loggato;
+      problem.placeholder = loggato
+        ? "Chiedi qualcosa a Nexcrank..."
+        : "Accedi per chattare con Nexcrank...";
+      attachLabel.title = loggato ? "Allega una foto" : "Accedi per allegare una foto";
+      send.title = loggato ? "Invia messaggio" : "Accedi per inviare messaggi";
+    }
+
+    function apriModaleAccesso() {
+      if (!authModal.hidden) return;
+      fuocoPrecedente = document.activeElement;
+      authModal.hidden = false;
+      authModalLogin.focus();
+    }
+
+    function chiudiModaleAccesso() {
+      authModal.hidden = true;
+      if (fuocoPrecedente && typeof fuocoPrecedente.focus === "function") {
+        try { fuocoPrecedente.focus({ preventScroll: true }); } catch {}
+      }
+      fuocoPrecedente = null;
+    }
+
+    // Restituisce true (e blocca l'azione) se l'utente non è autenticato
+    function bloccaSeDemo(event) {
+      if (loggato) return false;
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      // Finché lo stato non è noto non mostrare l'invito (evita falsi avvisi a chi è già loggato)
+      if (accessoVerificato) apriModaleAccesso();
+      return true;
+    }
+
+    // Verifica l'accesso: nessun reindirizzamento, senza accesso si resta in demo.
+    async function verificaAccesso() {
       try {
+        const auth = await attendiAuth();
+        if (!(await auth.haUtente())) {
+          impostaModalita(false);
+          return;
+        }
         const risposta = await fetch("/api/auth/me", {
           cache: "no-store",
           headers: await intestazioniAuth()
         });
-        if (!risposta.ok) return;
-        const dati = await risposta.json();
-        if (dati.utente?.email) {
-          accountEmail.textContent = dati.utente.email;
-          accountLink.hidden = true;
-          accountInfo.hidden = false;
+        if (risposta.ok) {
+          const dati = await risposta.json();
+          if (dati && dati.utente) {
+            impostaModalita(true, dati.utente.email);
+            return;
+          }
         }
       } catch (err) {
-        console.warn("Stato account non disponibile.", err);
+        console.warn("Verifica accesso non riuscita.", err);
       }
+      impostaModalita(false);
     }
 
     accountLogout.addEventListener("click", async () => {
@@ -1237,7 +1574,7 @@
         problem.value = "";
         problem.style.height = "auto";
         rimuoviFoto();
-        send.title = "Invia messaggio";
+        send.title = loggato ? "Invia messaggio" : "Accedi per inviare messaggi";
       }
       salvaChat();
     }
@@ -1310,7 +1647,7 @@
       problem.value = "";
       problem.style.height = "auto";
       rimuoviFoto();
-      send.title = "Invia messaggio";
+      send.title = loggato ? "Invia messaggio" : "Accedi per inviare messaggi";
       localStorage.removeItem(CHIAVE_CRONOLOGIA);
       sessionStorage.removeItem(CHIAVE_CHAT);
       salvaChat();
@@ -1335,7 +1672,7 @@
         problem.value = "";
         problem.style.height = "auto";
         rimuoviFoto();
-        send.title = "Invia messaggio";
+        send.title = loggato ? "Invia messaggio" : "Accedi per inviare messaggi";
       }
       return eliminate;
     }
@@ -1461,7 +1798,7 @@
       messaggiSalvati = Array.isArray(scelta.messaggi) ? scelta.messaggi.slice(-80) : [];
       indiceInModifica = null;
       editNotice.hidden = true;
-      send.title = "Invia messaggio";
+      send.title = loggato ? "Invia messaggio" : "Accedi per inviare messaggi";
       rimuoviFoto();
       mostraErrore("");
       renderMessaggiSalvati();
@@ -1476,7 +1813,7 @@
       messaggiSalvati = [];
       indiceInModifica = null;
       editNotice.hidden = true;
-      send.title = "Invia messaggio";
+      send.title = loggato ? "Invia messaggio" : "Accedi per inviare messaggi";
       messages.replaceChildren();
       welcome.style.display = "block";
       problem.value = "";
@@ -1490,7 +1827,7 @@
         console.warn("Nexcrank: non riesco ad aggiornare la cronologia.", err);
       }
       chiudiSidebar();
-      problem.focus();
+      if (loggato) problem.focus();
     }
 
     function apriSidebar() {
@@ -1739,6 +2076,7 @@
 
     function entraInModifica(indice) {
       if (send.disabled) return;
+      if (bloccaSeDemo()) return;
       const messaggio = messaggiSalvati[indice];
       if (!messaggio || messaggio.ruolo !== "user") return;
       indiceInModifica = indice;
@@ -1760,8 +2098,8 @@
       editNoticeText.textContent = "Stai modificando un tuo messaggio";
       problem.value = "";
       problem.style.height = "auto";
-      send.title = "Invia messaggio";
-      problem.focus();
+      send.title = loggato ? "Invia messaggio" : "Accedi per inviare messaggi";
+      if (loggato) problem.focus();
     }
 
     function ripristinaChat() {
@@ -1796,6 +2134,12 @@
 
       if (!file) return;
 
+      if (!loggato) {
+        rimuoviFoto();
+        bloccaSeDemo();
+        return;
+      }
+
       const tipiConsentiti = [
         "image/jpeg",
         "image/png",
@@ -1822,6 +2166,29 @@
       preview.src = url;
       fileName.textContent = file.name;
       photoPreview.style.display = "flex";
+    });
+
+    // --- Blocchi modalità demo: casella di testo, tasto "+", input file ---
+    problem.addEventListener("click", bloccaSeDemo);
+    attachLabel.addEventListener("click", bloccaSeDemo);
+    photo.addEventListener("click", bloccaSeDemo);
+
+    // --- Chip di domande rapide ---
+    document.querySelectorAll(".chip[data-domanda]").forEach(chip => {
+      chip.addEventListener("click", event => {
+        if (bloccaSeDemo(event)) return;
+        if (send.disabled) return;
+        indiceInModifica = null;
+        editNotice.hidden = true;
+        problem.value = chip.dataset.domanda;
+        inviaMessaggio();
+      });
+    });
+
+    // --- Finestra di invito all'accesso ---
+    authModalClose.addEventListener("click", chiudiModaleAccesso);
+    authModal.addEventListener("click", event => {
+      if (event.target === authModal) chiudiModaleAccesso();
     });
 
     removePhoto.addEventListener("click", rimuoviFoto);
@@ -1855,7 +2222,10 @@
     });
     document.getElementById("sidebarBackdrop").addEventListener("click", chiudiSidebar);
     document.addEventListener("keydown", event => {
-      if (event.key === "Escape") chiudiSidebar();
+      if (event.key === "Escape") {
+        chiudiSidebar();
+        if (!authModal.hidden) chiudiModaleAccesso();
+      }
     });
 
     problem.addEventListener("input", () => {
@@ -1865,6 +2235,9 @@
 
     async function inviaMessaggio() {
       if (send.disabled) return;
+
+      // Utenti non registrati: nessun invio (il server rifiuterebbe comunque la richiesta senza token valido)
+      if (bloccaSeDemo()) return;
 
       const testo = problem.value.trim();
       const file = fotoSelezionata?.file || null;
@@ -2085,7 +2458,7 @@
     }
 
     ripristinaChat();
-    aggiornaAccount();
+    verificaAccesso();
 
     send.addEventListener("click", inviaMessaggio);
 
@@ -2095,28 +2468,6 @@
         inviaMessaggio();
       }
     });
-
-    // Verifica l'accesso: se non autenticato, vai alla pagina di accesso
-    (async function controllaAccesso() {
-      try {
-        const risposta = await fetch("/api/auth/me", {
-          cache: "no-store",
-          headers: await intestazioniAuth()
-        });
-
-        if (risposta.ok) {
-          const dati = await risposta.json();
-          if (dati && dati.utente) {
-            document.body.classList.add("autenticato");
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn("Verifica accesso non riuscita.", err);
-      }
-
-      window.location.replace("accesso.html");
-    })();
   </script>
 </body>
 </html>
