@@ -24,14 +24,17 @@
       --muted: #91a1b7;
       --accent: #22d3ee;
 
-      /* Pulsanti principali: stesso ciano del logo NEXCRANK (--accent) */
-      --cta-bg: var(--accent);
-      --cta-bg-hover: #67e8f9;
-      --cta-border: var(--accent);
-      --cta-border-hover: #67e8f9;
+      /* Pulsanti principali: ciano azzurro del logo (come appare sul fondo scuro).
+         Tonalità ~192°: su ampie superfici resta azzurro-ciano e non vira al menta. */
+      --cta-cyan: #25c7f0;
+      --cta-cyan-hover: #5ad4f6;
+      --cta-bg: var(--cta-cyan);
+      --cta-bg-hover: var(--cta-cyan-hover);
+      --cta-border: var(--cta-cyan);
+      --cta-border-hover: var(--cta-cyan-hover);
       --cta-text: var(--background);
       --cta-sub: #083344;
-      --cta-focus: #a5f3fc;
+      --cta-focus: #8fdcfb;
     }
 
     /* L'interfaccia è sempre visibile (modalità demo inclusa).
@@ -108,9 +111,9 @@
       justify-content: center;
       gap: 8px;
       padding: 0 16px;
-      border: 1.5px solid var(--accent);
+      border: 1.5px solid var(--cta-cyan);
       border-radius: 12px;
-      background: var(--accent);
+      background: var(--cta-cyan);
       color: var(--background);
       text-decoration: none;
       font-size: 13px;
@@ -225,7 +228,7 @@
     .account-cta:active { transform: translateY(0); }
     .account-cta:focus-visible { outline: 2px solid var(--cta-focus); outline-offset: 3px; }
     .account-cta[hidden] { display: none !important; }
-    .account-cta .account-avatar { border-color: transparent; background: var(--background); color: var(--accent); }
+    .account-cta .account-avatar { border-color: transparent; background: var(--background); color: var(--cta-cyan); }
     .account-cta .account-title { color: var(--cta-text); font-size: 14px; font-weight: 800; }
     .account-cta .account-subtitle { color: #04141c; font-size: 11px; font-weight: 600; }
     .account-cta .account-chevron { color: var(--background); transition: transform .2s ease; }
@@ -345,15 +348,15 @@
     .chip-emoji { font-size: 15px; line-height: 1; }
 
     .chip-primary {
-      border-color: var(--accent);
-      background: var(--accent);
+      border-color: var(--cta-cyan);
+      background: var(--cta-cyan);
       color: var(--background);
       font-weight: 800;
       box-shadow: 0 5px 18px #22d3ee2e;
     }
     .chip-primary:hover {
-      border-color: #67e8f9;
-      background: #67e8f9;
+      border-color: var(--cta-cyan-hover);
+      background: var(--cta-cyan-hover);
       color: var(--background);
       filter: brightness(1.05);
       box-shadow: 0 8px 24px #22d3ee45;
