@@ -1061,25 +1061,10 @@
     .auth-dialog-secondary:hover { border-color: var(--cta-border-hover); color: white; }
 
     /* ---------- Modalità demo: colori meno saturi ----------
-       Solo aspetto grafico: nessuna funzione cambia. */
-    body.demo .guide-link,
-    body.demo .chip-primary {
-      border-color: var(--cta-border);
-      background: var(--cta-bg);
-      color: var(--cta-text);
-      box-shadow: 0 2px 10px #0006, inset 0 1px 0 #ffffff0d;
-    }
-    body.demo .guide-link:hover,
-    body.demo .chip-primary:hover {
-      border-color: var(--cta-border-hover);
-      background: var(--cta-bg-hover);
-      color: var(--cta-text);
-      filter: none;
-      box-shadow: 0 6px 18px #00000066, inset 0 1px 0 #ffffff14;
-    }
-    body.demo .guide-link:focus-visible,
-    body.demo .chip-primary:focus-visible { outline-color: var(--cta-focus); }
-    body.demo .chip:hover { border-color: #4a6d96; box-shadow: none; }
+       Solo aspetto grafico: nessuna funzione cambia.
+       I pulsanti principali (ciano) NON sono toccati qui: il loro stile è
+       definito una sola volta nel blocco "Pulsanti principali" più sotto. */
+    body.demo .chip:not(.chip-primary):hover { border-color: #4a6d96; box-shadow: none; }
     body.demo .welcome-icon { background: #15283d; color: #8fb4e3; box-shadow: none; }
     body.demo .composer:focus-within { border-color: #3b5f8f; }
     body.demo #send { background: #2a4468; color: #dbe8fa; }
@@ -1088,6 +1073,60 @@
     body.demo .auth-dialog { border-color: #2c3f58; }
     body.demo .auth-dialog-icon,
     .auth-modal .auth-dialog-icon { background: #15283d; color: #8fb4e3; }
+
+    /* =========================================================
+       PULSANTI PRINCIPALI: stile identico a "Apri Guida 3D →"
+       Sfondo, bordo, testo, ombre, hover, active e focus sono
+       gli stessi per tutti i pulsanti elencati (demo e non).
+       Cambiano solo dimensioni/forma/spaziatura, già definite
+       sopra per ciascun elemento.
+       ========================================================= */
+    .guide-link,
+    .chip.chip-primary,
+    .demo-banner a,
+    .account-cta,
+    .auth-dialog-primary {
+      border: 1.5px solid var(--cta-cyan);
+      background: var(--cta-cyan);
+      color: var(--background);
+      box-shadow: 0 2px 8px #00000055, 0 5px 18px #22d3ee2e;
+      filter: none;
+      transition: transform .2s ease, filter .2s ease, box-shadow .2s ease;
+    }
+    .guide-link:hover,
+    .chip.chip-primary:hover,
+    .demo-banner a:hover,
+    .account-cta:hover,
+    .auth-dialog-primary:hover {
+      transform: translateY(-1px);
+      border-color: var(--cta-cyan);
+      background: var(--cta-cyan);
+      color: var(--background);
+      filter: brightness(1.1);
+      box-shadow: 0 4px 12px #00000066, 0 8px 24px #22d3ee45;
+    }
+    .guide-link:active,
+    .chip.chip-primary:active,
+    .demo-banner a:active,
+    .account-cta:active,
+    .auth-dialog-primary:active {
+      transform: translateY(0);
+      filter: brightness(1);
+    }
+    .guide-link:focus-visible,
+    .chip.chip-primary:focus-visible,
+    .demo-banner a:focus-visible,
+    .account-cta:focus-visible,
+    .auth-dialog-primary:focus-visible {
+      outline: 3px solid #a5f3fc;
+      outline-offset: 3px;
+    }
+
+    /* Pulsante "Accedi / Registrati" nella barra laterale: testi leggibili sul ciano */
+    .account-cta .account-title { color: var(--background); }
+    .account-cta .account-subtitle { color: #04141c; font-weight: 600; }
+    .account-cta .account-chevron { color: var(--background); }
+    .account-cta .account-avatar { border-color: transparent; background: var(--background); color: var(--cta-cyan); }
 
     @media (max-width: 760px) {
       header { padding: 0 4%; }
